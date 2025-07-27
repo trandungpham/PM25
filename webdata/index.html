@@ -51,7 +51,14 @@
               x: xmesh,
               y: ymesh,
               z: Z,
-              colorscale: 'Viridis',
+              colorscale : [
+                [0/6,  "#ffffff"],  
+                [1/6,  "#00A651"],  
+                [2/6,  "#FFC627"],  
+                [3/6,  "#F58220"],  
+                [4/6,  "#ED1C24"],  
+                [5/6,  "#662D91"],  
+                [6/6,  "#4A0A38"], ],
               cmin: 0, cmax: 6
             }], {
               title: `PM2.5 AQI - ${timestamp}`,
