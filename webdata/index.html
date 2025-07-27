@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PM2.5 AQI 3D Viewer</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+  <h2>PM2.5 AQI 3D Viewer</h2>
+  <input type="range" id="slider" min="0" max="N-1" value="0" step="1" style="width:100%">
+  <div id="plot3d" style="height: 600px;"></div>
+
+  <script>
+    let X, Y, timestamps = [];
+    const slider = document.getElementById("slider");
+
+    // Load coordinate grids
+    Promise.all([
+      fetch('xu.json').then(r => r.json()),
+      fetch('yu.json').then(r => r.json())
+    ]).then(([xu, yu]) => {
+      X = xu;
+      Y = yu;
+      // Generate meshgrid
+      const mesh = (a, b) => {
+        const x = [], y = [];
+        for (let i = 0; i < b.length; i++) {
+          x.push(a);
+          y.push(Array(a.length).fill(b[i]));
+        }
+        return [x, y];
+      };
+      const [xmesh, ymesh] = mesh(xu, yu);
+
+      // Load all frame file names
+      fetch('frames/index.json')
+        .then(r => r.json())
+        .then(index => {
+          timestamps = index;
+          slider.max = timestamps.length - 1;
+          loadFrame(0);
+        });
+
+      // Render a frame
+      function loadFrame(i) {
+        const timestamp = timestamps[i];
+        fetch(`frames/${timestamp}.json`)
+          .then(r => r.json())
+          .then(Z => {
+            Plotly.newPlot("plot3d", [{
+              type: 'surface',
+              x: xmesh,
+              y: ymesh,
+              z: Z,
+              colorscale: 'Viridis',
+              cmin: 0, cmax: 6
+            }], {
+              title: `PM2.5 AQI - ${timestamp}`,
+              scene: {
+                zaxis: { title: 'AQI', range: [0, 6] },
+                xaxis: { title: 'Longitude' },
+                yaxis: { title: 'Latitude' }
+              }
+            });
+          });
+      }
+
+      slider.addEventListener("input", () => {
+        loadFrame(parseInt(slider.value));
+      });
+    });
+  </script>
+</body>
+</html>
