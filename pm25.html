@@ -43,8 +43,10 @@
         <li><a href="index.html">Home</a></li>
         <li><a href="pm25.html">PM2.5</a></li>
         <li><a href="pm10.html">PM10</a></li>
+        <li><a href="CO.html">CO</a></li>
         </ul>
     </nav>
+    <h2>PM2.5 AQI Viewer</h2>
     <div style="display: flex;">
         <div id="plot3d" style="width: 50%; height: 630px;"></div>
         <div id="plot2d" style="width: 50%; height: 630px;"></div>
@@ -146,10 +148,10 @@
         colorbar: {
           tickvals: [0, 1, 2, 3, 4, 5, 6],
           ticktext: [
-            "0", "1 - Good (0-12)", "2 - Moderate (12-35)", "3 - Unhealthy for Sensitive (35-55)",
-            "4 - Unhealthy (55-150)", "5 - Very Unhealthy (150-250)", "6 - Hazardous (>250)"
+            "0", "1 - Good (0-11)", "2 - Moderate (12-34)", "3 - Unhealthy for Sensitive (35-54)",
+            "4 - Unhealthy (55-150)", "5 - Very Unhealthy (150-249)", "6 - Hazardous (>250)"
           ],
-          title: "AQI Category (µg/m³)"
+          title: {text: "AQI Category (µg/m³)"},
         }
       }], {
         title: { text: `2D Heatmap - ${timestamp}`},
