@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PM2.5 AQI 3D Viewer</title>
+  <script src="https://cdn.plot.ly/plotly-3.0.3.min.js" charset="utf-8"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: white;
+    }
+
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      margin: 0;           /* reduce vertical space */
+      background-color: #f2efef;
+    }
+
+  </style>
+</head>
+<body>
+    <h2>PM2.5 AQI 3D Viewer</h2>
+    <div style="display: flex;">
+        <div id="plot3d" style="width: 50%; height: 650px;"></div>
+        <div id="plot2d" style="width: 50%; height: 650px;"></div>
+    </div>
+    <div id="controls">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn">Stop</button>
+        <button id="speedBtn">Speed: 1x</button>
+        <input type="range" id="slider" min="0" max="N-1" value="0" step="1">
+    </div>
+
+  <script>
+    let X, Y, timestamps = [];
+    let intervalId = null;
+    let currentFrame = 0;
+    let speed = 500; // default = 1x speed (500 ms)
+    let isFast = false;
+    let customColor = [
+            [0, '#ffffff'],   // No Data
+            [1 / 6, '#00A651'],  // Good
+            [2 / 6, '#FFC627'],  // Moderate
+            [3 / 6, '#F58220'],  // Unhealthy for Sensitive
+            [4 / 6, '#ED1C24'],  // Unhealthy
+            [5 / 6, '#662D91'],  // Very Unhealthy
+            [1, '#4A0A38']       // Hazardous
+        ];
+    const speedBtn = document.getElementById("speedBtn");
+    const slider = document.getElementById("slider");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+
+    // Load coordinate grids
+    Promise.all([
+      fetch('Frames/PM25/xu.json').then(r => r.json()),
+      fetch('Frames/PM25/yu.json').then(r => r.json())
+    ]).then(([xu, yu]) => {
+      X = xu;
+      Y = yu;
+
+      // Generate meshgrid
+      const mesh = (a, b) => {
+        const x = [], y = [];
+        for (let i = 0; i < b.length; i++) {
+          x.push(a);
+          y.push(Array(a.length).fill(b[i]));
+        }
+        return [x, y];
+      };
+      const [xmesh, ymesh] = mesh(xu, yu);
+
+      // Load all frame file names
+      fetch('Frames/PM25/index.json')
+        .then(r => r.json())
+        .then(index => {
+          timestamps = index;
+          slider.max = timestamps.length - 1;
+          loadFrame(0);
+        });
+
+      // Render a frame
+    function loadFrame(i) {
+  const timestamp = timestamps[i];
+  fetch(`Frames/PM25/${timestamp}.json`)
+    .then(r => r.json())
+    .then(Z => {
+      // 3D plot
+      Plotly.newPlot("plot3d", [{
+        type: 'surface',
+        x: xmesh,
+        y: ymesh,
+        z: Z,
+        colorscale: customColor,
+        cmin: 0, cmax: 6,
+        showscale: false
+      }], {
+        title: {text: `3D - ${timestamp}`},
+        scene: {
+          zaxis: {
+            title: { text: 'AQI' },
+            range: [0, 6]
+          },
+          xaxis: {},
+          yaxis: {},
+          camera: {
+            eye: { x: -1.6, y: -1.6, z: 0.8 }
+          }
+        }
+      });
+
+      // 2D plot
+      Plotly.newPlot("plot2d", [{
+        type: 'heatmap',
+        z: Z,
+        x: X,
+        y: Y,
+        colorscale: customColor,
+        zmin: 0, zmax: 6,
+        showscale: true,
+        colorbar: {
+          tickvals: [0, 1, 2, 3, 4, 5, 6],
+          ticktext: [
+            "0", "1 - Good (0-12)", "2 - Moderate (12-35)", "3 - Unhealthy for Sensitive (35-55)",
+            "4 - Unhealthy (55-150)", "5 - Very Unhealthy (150-250)", "6 - Hazardous (>250)"
+          ],
+          title: "AQI Category (µg/m³)"
+        }
+      }], {
+        title: { text: `2D Heatmap - ${timestamp}`},
+        xaxis: { title: ''},
+        yaxis: { title: ''}
+      });
+    })
+    .catch(err => {
+      console.error("Error loading frame:", err);
+    });
+    }
+
+
+    slider.addEventListener("input", () => {
+    loadFrame(parseInt(slider.value));
+    });
+
+    speedBtn.addEventListener("click", () => {
+    isFast = !isFast;
+    speed = isFast ? 250 : 500;  // 2x speed is 250ms
+    speedBtn.innerText = `Speed: ${isFast ? "2x" : "1x"}`;
+
+    // Restart animation with new speed if it's running
+    if (intervalId !== null) {
+        clearInterval(intervalId);
+        intervalId = setInterval(() => {
+        currentFrame = (currentFrame + 1) % timestamps.length;
+        loadFrame(currentFrame);
+        }, speed);
+    }
+    });
+
+
+        startBtn.addEventListener("click", () => {
+    if (intervalId === null) {
+    intervalId = setInterval(() => {
+        currentFrame = (currentFrame + 1) % timestamps.length;
+        loadFrame(currentFrame);
+    }, speed);}
+    });
+
+    stopBtn.addEventListener("click", () => {
+        clearInterval(intervalId);
+        intervalId = null;
+    });
+
+    });
+    
+  </script>
+</body>
+</html>
