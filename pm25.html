@@ -5,12 +5,6 @@
   <script src="https://cdn.plot.ly/plotly-3.0.3.min.js" charset="utf-8"></script>
 
   <style>
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      background: white;
-    }
-
     #controls {
       display: flex;
       align-items: center;
@@ -19,14 +13,41 @@
       margin: 0;           /* reduce vertical space */
       background-color: #f2efef;
     }
+    /* Navbar Style */
+    nav {
+      background-color: #333;
+      padding: 1em;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 20px;
+    }
+
+    nav ul li a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    nav ul li a:hover {
+      text-decoration: underline;
+    }
 
   </style>
 </head>
 <body>
-    <h2>PM2.5 AQI 3D Viewer</h2>
+    <nav>
+        <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="pm25.html">PM2.5</a></li>
+        <li><a href="pm10.html">PM10</a></li>
+        </ul>
+    </nav>
     <div style="display: flex;">
-        <div id="plot3d" style="width: 50%; height: 650px;"></div>
-        <div id="plot2d" style="width: 50%; height: 650px;"></div>
+        <div id="plot3d" style="width: 50%; height: 630px;"></div>
+        <div id="plot2d" style="width: 50%; height: 630px;"></div>
     </div>
     <div id="controls">
         <button id="startBtn">Start</button>
