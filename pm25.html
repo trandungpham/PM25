@@ -51,10 +51,12 @@
         <div id="plot3d" style="width: 50%; height: 630px;"></div>
         <div id="plot2d" style="width: 50%; height: 630px;"></div>
     </div>
+    <div id="lineplot" style="width: 100%; height: 400px;"></div>
     <div id="controls">
         <button id="startBtn">Start</button>
         <button id="stopBtn">Stop</button>
         <button id="speedBtn">Speed: 1x</button>
+        <button id="linechart"> Load Line chart</button>
         <input type="range" id="slider" min="0" max="N-1" value="0" step="1">
     </div>
 
@@ -77,11 +79,12 @@
     const slider = document.getElementById("slider");
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
+    const LineChart = document.getElementById("linechart")
 
     // Load coordinate grids
     Promise.all([
-      fetch('Frames/PM25/xu.json').then(r => r.json()),
-      fetch('Frames/PM25/yu.json').then(r => r.json())
+      fetch('Frames/PM25_1/xu.json').then(r => r.json()),
+      fetch('Frames/PM25_1/yu.json').then(r => r.json())
     ]).then(([xu, yu]) => {
       X = xu;
       Y = yu;
@@ -98,20 +101,31 @@
       const [xmesh, ymesh] = mesh(xu, yu);
 
       // Load all frame file names
-      fetch('Frames/PM25/index.json')
+      fetch('Frames/PM25_1/index.json')
         .then(r => r.json())
         .then(index => {
           timestamps = index;
           slider.max = timestamps.length - 1;
           loadFrame(0);
         });
-
+        function categorizePM25(Zraw) {
+        return Zraw.map(row => row.map(val => {
+            if (val === 0) return 0;              // No Data
+            else if (val <= 11) return 1;                          // Good
+            else if (val <= 34) return 2;                          // Moderate
+            else if (val <= 54) return 3;                          // Unhealthy for Sensitive
+            else if (val <= 149) return 4;                         // Unhealthy
+            else if (val <= 249) return 5;                         // Very Unhealthy
+            else return 6;                                         // Hazardous
+        }));
+        }
       // Render a frame
     function loadFrame(i) {
   const timestamp = timestamps[i];
-  fetch(`Frames/PM25/${timestamp}.json`)
+  fetch(`Frames/PM25_1/${timestamp}.json`)
     .then(r => r.json())
-    .then(Z => {
+    .then(Zraw => {
+        const Z = categorizePM25(Zraw);
       // 3D plot
       Plotly.newPlot("plot3d", [{
         type: 'surface',
@@ -162,7 +176,63 @@
     .catch(err => {
       console.error("Error loading frame:", err);
     });
+
+    let selectedXIdx = null;
+    let selectedYIdx = null;
+
+    let xi = 540.5;
+    let yi = 3923.5;
+
+    // New: capture click event from 2D plot
+    document.getElementById('plot2d').on('plotly_click', function(data) {
+        if (data.points.length > 0) {
+            const pt = data.points[0];
+            const xval = pt.x;
+            const yval = pt.y;
+
+            selectedXIdx = X.indexOf(xval);
+            selectedYIdx = Y.indexOf(yval);
+            console.log("Clicked at", selectedXIdx, selectedYIdx);
+
+            if (selectedXIdx !== -1 && selectedYIdx !== -1) {
+                loadLineChart(selectedXIdx, selectedYIdx);
+            }
+        }
+    });
+
+    // Function to load and render line chart at selected point
+    function loadLineChart(xi, yi) {
+        const valuesOverTime = [];
+
+        let fetches = timestamps.map(ts =>
+            fetch(`Frames/PM25_1/${ts}.json`)
+                .then(r => r.json())
+                .then(Z => valuesOverTime.push(Z[yi][xi]))
+        );
+
+        Promise.all(fetches).then(() => {
+            Plotly.newPlot("lineplot", [{
+                x: timestamps,
+                y: valuesOverTime,
+                mode: 'lines+markers',
+                line: { color: '#ED1C24' },
+                marker: { size: 4 },
+                name: `PM2.5 at (x=${X[xi]}, y=${Y[yi]})`
+            }], {
+                title: `Time Series of PM2.5 at Selected Point`,
+                xaxis: { title: "Timestamp" },
+                yaxis: { title: "AQI Level", range: [0, 6] }
+            });
+        });
     }
+
+
+
+    }
+
+    LineChart.addEventListener("click",  () => {
+        loadLineChart(540.5, 3923.5);
+    });
 
 
     slider.addEventListener("input", () => {
@@ -198,7 +268,10 @@
         intervalId = null;
     });
 
+
+
     });
+
     
   </script>
 </body>
