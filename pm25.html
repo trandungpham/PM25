@@ -109,6 +109,20 @@
     const DEFAULT_X = 540.5;
     const DEFAULT_Y = 3923.5;
     
+    // Helper to find the nearest index in a coordinate array
+    function findNearestIndex(val, arr) {
+        let nearest = 0;
+        let minDiff = Math.abs(val - arr[0]);
+        for (let i = 1; i < arr.length; i++) {
+            const diff = Math.abs(val - arr[i]);
+            if (diff < minDiff) {
+                minDiff = diff;
+                nearest = i;
+            }
+        }
+        return nearest;
+    }
+    
     let selectedXIdx = null;
     let selectedYIdx = null;
     
@@ -138,7 +152,7 @@
             y: []
         }], {
             title: { 
-                text: 'Loading data...',
+                text: `Loading data for point (${X[xi]?.toFixed ? X[xi].toFixed(1) : X[xi]}, ${Y[yi]?.toFixed ? Y[yi].toFixed(1) : Y[yi]})...`,
                 font: { size: 14 }
             }
         });
@@ -268,9 +282,10 @@
       }
 
       // Function to update static map (no animation, just coordinate selection)
-      function updateStaticMap(Z, timestamp, defaultColor = '#808080') {
+      function updateStaticMap(Z, timestamp, highlight = null, defaultColor = '#808080') {
         console.log("Updating static map for timestamp:", timestamp);
-        Plotly.newPlot("staticmap", [{
+        
+        const traces = [{
           type: 'heatmap',
           z: Z,
           x: X,
@@ -286,7 +301,22 @@
           hoverlabel: {bgcolor: '#FFF'},
           showgrid: true,
           gridcolor: '#808080'
-        }], {
+        }];
+        
+        // Add highlighted point (e.g., default location) if provided
+        if (highlight && highlight.x !== undefined && highlight.y !== undefined) {
+          traces.push({
+            type: 'scatter',
+            x: [highlight.x],
+            y: [highlight.y],
+            mode: 'markers',
+            marker: { color: 'red', size: 10, symbol: 'circle' },
+            name: 'Selected Point',
+            hoverinfo: 'x+y'
+          });
+        }
+        
+        Plotly.newPlot("staticmap", traces, {
           title: { 
             text: `Static Coordinate Selector - ${timestamp}`,
             font: { size: 14 }
@@ -381,7 +411,7 @@
           
           // Update static map only for the first frame (no animation)
           if (i === 0) {
-            updateStaticMap(Z, timestamp);
+            updateStaticMap(Z, timestamp, {x: X[selectedXIdx], y: Y[selectedYIdx]});
           }
         })
         .catch(err => {
@@ -454,7 +484,17 @@
           slider.max = timestamps.length - 1;
           console.log("Loaded timestamps:", timestamps.length, "frames");
           console.log("Map element ready for click events");
-          loadFrame(0); // Load first frame
+
+          // Determine default selected location based on predefined coordinates
+          selectedXIdx = findNearestIndex(DEFAULT_X, X);
+          selectedYIdx = findNearestIndex(DEFAULT_Y, Y);
+          console.log("Default location indices:", selectedXIdx, selectedYIdx, 
+                      "coordinates:", X[selectedXIdx], Y[selectedYIdx]);
+
+          // Plot default location time-series
+          loadLineChart(selectedXIdx, selectedYIdx);
+
+          loadFrame(0); // Load first frame (will also highlight default location)
 
           // Set up all control event handlers AFTER timestamps are loaded
           slider.addEventListener("input", () => {
