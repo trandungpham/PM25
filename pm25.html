@@ -491,10 +491,11 @@
           console.log("Default location indices:", selectedXIdx, selectedYIdx, 
                       "coordinates:", X[selectedXIdx], Y[selectedYIdx]);
 
+          // Load first frame (2D & 3D maps) and highlight default location
+          loadFrame(0);
+
           // Plot default location time-series
           loadLineChart(selectedXIdx, selectedYIdx);
-
-          loadFrame(0); // Load first frame (will also highlight default location)
 
           // Set up all control event handlers AFTER timestamps are loaded
           slider.addEventListener("input", () => {
@@ -634,6 +635,27 @@
                           font: { size: 14 }
                       }
                   });
+
+                  // Update or add red marker for selected point
+                  const staticMapDiv = document.getElementById('staticmap');
+                  if (staticMapDiv && staticMapDiv.data && staticMapDiv.data.length > 1 && staticMapDiv.data[1].type === 'scatter') {
+                      // Scatter trace exists – just move it
+                      Plotly.restyle('staticmap', {
+                          x: [[X[selectedXIdx]]],
+                          y: [[Y[selectedYIdx]]]
+                      }, [1]);
+                  } else {
+                      // Add new scatter trace for highlight
+                      Plotly.addTraces('staticmap', {
+                          type: 'scatter',
+                          x: [X[selectedXIdx]],
+                          y: [Y[selectedYIdx]],
+                          mode: 'markers',
+                          marker: { color: 'red', size: 10, symbol: 'circle' },
+                          name: 'Selected Point',
+                          hoverinfo: 'x+y'
+                      });
+                  }
               } catch (err) {
                   console.error("Error loading line chart:", err);
                   // Show error in the line plot area
