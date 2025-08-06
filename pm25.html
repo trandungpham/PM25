@@ -185,7 +185,7 @@
                 name: `PM2.5 at {${X[xi]}, ${Y[yi]}}`
             }], {
                 title: { 
-                    text: `Time Series Plot At Location {${X[xi]}, ${Y[yi]}}`,
+                    text: `Time Series at Point (${X[xi].toFixed(1)}, ${Y[yi].toFixed(1)})`,
                     font: { size: 14 }
                 },
                 xaxis: { 
@@ -396,8 +396,8 @@
         y: []
       }], {
         title: { 
-          text: 'Time Series Plot - Click on Interactive Map to Load Data',
-          font: { size: 16 }
+          text: 'Time Series Plot - Click on Static Coordinate Selector Map to Load Data',
+          font: { size: 14 }
         },
         xaxis: { title: 'Timestamp' },
         yaxis: { title: 'PM2.5 Value (µg/m³)' },
@@ -515,14 +515,27 @@
                   const xval = pt.x;
                   const yval = pt.y;
 
-                  selectedXIdx = X.indexOf(xval);
-                  selectedYIdx = Y.indexOf(yval);
-                  console.log("Selected location:", xval, yval);
+                  const findNearestIndex = (val, arr) => {
+                      let nearest = 0;
+                      let minDiff = Math.abs(val - arr[0]);
+                      for (let i = 1; i < arr.length; i++) {
+                          const diff = Math.abs(val - arr[i]);
+                          if (diff < minDiff) {
+                              minDiff = diff;
+                              nearest = i;
+                          }
+                      }
+                      return nearest;
+                  };
+
+                  selectedXIdx = findNearestIndex(xval, X);
+                  selectedYIdx = findNearestIndex(yval, Y);
+                  console.log("Selected location from interactive map:", X[selectedXIdx], Y[selectedYIdx]);
 
                   if (selectedXIdx !== -1 && selectedYIdx !== -1) {
                       loadLineChart(selectedXIdx, selectedYIdx);
                   } else {
-                      console.error("Invalid coordinates selected:", xval, yval);
+                      console.error("Invalid coordinates selected from interactive map:", xval, yval);
                   }
               }
           });
