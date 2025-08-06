@@ -5,14 +5,47 @@
   <script src="https://cdn.plot.ly/plotly-3.0.3.min.js" charset="utf-8"></script>
 
   <style>
+    .grid-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 10px;
+      padding: 10px;
+      height: calc(100vh - 150px); /* Adjust based on navbar and controls height */
+    }
+
+    .grid-item {
+      width: 100%;
+      height: 100%;
+      min-height: 400px;
+    }
+
+    /* Bottom row with 2:8 ratio */
+    .bottom-row-container {
+      display: grid;
+      grid-template-columns: 4fr 6fr; /* 2:8 ratio */
+      gap: 10px;
+      grid-column: 1 / -1; /* Span entire row */
+      width: 100%;
+      height: 100%;
+      min-height: 400px;
+    }
+
+    .bottom-row-item {
+      width: 100%;
+      height: 100%;
+    }
+
     #controls {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 5px 10px;
-      margin: 0;           /* reduce vertical space */
+      padding: 8px 10px;
+      margin: 0;
       background-color: #f2efef;
+      border-bottom: 1px solid #ccc;
     }
+
     /* Navbar Style */
     nav {
       background-color: #333;
@@ -40,24 +73,29 @@
 <body>
     <nav>
         <ul>
-        <li><a href="index.html">Home</a></li>
         <li><a href="pm25.html">PM2.5</a></li>
         <li><a href="pm10.html">PM10</a></li>
         <li><a href="CO.html">CO</a></li>
         </ul>
     </nav>
     <h2>PM2.5 AQI Viewer</h2>
-    <div style="display: flex;">
-        <div id="plot3d" style="width: 50%; height: 630px;"></div>
-        <div id="plot2d" style="width: 50%; height: 630px;"></div>
-    </div>
-    <div id="lineplot" style="width: 100%; height: 400px;"></div>
     <div id="controls">
         <button id="startBtn">Start</button>
         <button id="stopBtn">Stop</button>
         <button id="speedBtn">Speed: 1x</button>
-        <button id="linechart"> Load Line chart</button>
         <input type="range" id="slider" min="0" max="N-1" value="0" step="1">
+        <span style="margin-left: 10px; font-size: 12px;">Frame: <span id="frameCounter">0</span></span>
+    </div>
+    <div class="grid-container">
+        <!-- Top row: 3D plot and Interactive Map -->
+        <div id="plot3d" class="grid-item"></div>
+        <div id="map2d" class="grid-item"></div>
+        
+        <!-- Bottom row: Static Map (20%) and Time Series (80%) -->
+        <div class="bottom-row-container">
+            <div id="staticmap" class="bottom-row-item"></div>
+            <div id="lineplot" class="bottom-row-item"></div>
+        </div>
     </div>
 
   <script>
@@ -66,6 +104,14 @@
     let currentFrame = 0;
     let speed = 500; // default = 1x speed (500 ms)
     let isFast = false;
+    
+    // Default location coordinates
+    const DEFAULT_X = 540.5;
+    const DEFAULT_Y = 3923.5;
+    
+    let selectedXIdx = null;
+    let selectedYIdx = null;
+    
     let customColor = [
             [0, '#ffffff'],   // No Data
             [1 / 6, '#00A651'],  // Good
@@ -79,15 +125,123 @@
     const slider = document.getElementById("slider");
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
-    const LineChart = document.getElementById("linechart")
+
+    // Function to load and render line chart at selected point
+    function loadLineChart(xi, yi) {
+        console.log("loadLineChart called with indices:", xi, yi);
+        console.log("Coordinates:", X ? X[xi] : 'X undefined', Y ? Y[yi] : 'Y undefined');
+        
+        // Show loading state
+        Plotly.newPlot("lineplot", [{
+            type: 'scatter',
+            x: [],
+            y: []
+        }], {
+            title: { 
+                text: 'Loading data...',
+                font: { size: 14 }
+            }
+        });
+
+        // Use the non-async approach that was working before
+        const valuesOverTime = [];
+        const timesArray = [];
+        
+        let fetches = timestamps.map(ts =>
+            fetch(`Frames/PM25_1/${ts}.json`)
+                .then(r => {
+                    if (!r.ok) {
+                        throw new Error(`HTTP error! status: ${r.status} for file: ${ts}.json`);
+                    }
+                    return r.json();
+                })
+                .then(Zraw => {
+                    const value = Zraw[yi] && Zraw[yi][xi] !== undefined ? Zraw[yi][xi] : 0;
+                    valuesOverTime.push(value);
+                    timesArray.push(ts);
+                })
+                .catch(err => {
+                    console.error(`Error loading ${ts}.json:`, err);
+                    valuesOverTime.push(0); // Add 0 for failed requests
+                    timesArray.push(ts);
+                })
+        );
+
+        Promise.all(fetches).then(() => {
+            console.log("Time series data loaded:", valuesOverTime.slice(0, 10));
+            
+            // Calculate statistics only from non-zero values
+            const nonZeroValues = valuesOverTime.filter(v => v > 0);
+            const maxValue = nonZeroValues.length > 0 ? Math.max(...nonZeroValues) : 100;
+            const minValue = nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0;
+            const avgValue = nonZeroValues.length > 0 ? nonZeroValues.reduce((a, b) => a + b, 0) / nonZeroValues.length : 0;
+            
+            Plotly.newPlot("lineplot", [{
+                x: timesArray,
+                y: valuesOverTime,
+                mode: 'lines+markers',
+                line: { color: '#ED1C24', width: 2 },
+                marker: { size: 4, color: '#ED1C24' },
+                name: `PM2.5 at {${X[xi]}, ${Y[yi]}}`
+            }], {
+                title: { 
+                    text: `Time Series Plot At Location {${X[xi]}, ${Y[yi]}}`,
+                    font: { size: 14 }
+                },
+                xaxis: { 
+                    title: "Timestamp",
+                    tickangle: 45
+                },
+                yaxis: { 
+                    title: "PM2.5 Value (µg/m³)",
+                    range: [0, maxValue * 1.1]
+                },
+                annotations: nonZeroValues.length > 0 ? [{
+                    text: `Max: ${maxValue.toFixed(1)}<br>Min: ${minValue.toFixed(1)}<br>Avg: ${avgValue.toFixed(1)}`,
+                    x: 1,
+                    y: 1,
+                    xref: 'paper',
+                    yref: 'paper',
+                    showarrow: false,
+                    bgcolor: 'rgba(255, 255, 255, 0.8)',
+                    bordercolor: '#ED1C24',
+                    borderwidth: 1,
+                    font: { size: 11 }
+                }] : [],
+                margin: { t: 40, r: 80, b: 60, l: 60 }
+            });
+            
+            console.log("Chart rendered successfully");
+        })
+        .catch(err => {
+            console.error("Error in Promise.all:", err);
+            Plotly.newPlot("lineplot", [{
+                type: 'scatter',
+                x: [],
+                y: []
+            }], {
+                title: { 
+                    text: `Error loading data: ${err.message}`,
+                    font: { size: 14, color: 'red' }
+                }
+            });
+        });
+    }
 
     // Load coordinate grids
     Promise.all([
-      fetch('Frames/PM25_1/xu.json').then(r => r.json()),
-      fetch('Frames/PM25_1/yu.json').then(r => r.json())
+      fetch('Frames/PM25_1/xu.json').then(r => {
+        if (!r.ok) throw new Error(`Failed to load xu.json: ${r.status}`);
+        return r.json();
+      }),
+      fetch('Frames/PM25_1/yu.json').then(r => {
+        if (!r.ok) throw new Error(`Failed to load yu.json: ${r.status}`);
+        return r.json();
+      })
     ]).then(([xu, yu]) => {
       X = xu;
       Y = yu;
+      console.log("Coordinates loaded successfully. X length:", X.length, "Y length:", Y.length);
 
       // Generate meshgrid
       const mesh = (a, b) => {
@@ -100,15 +254,8 @@
       };
       const [xmesh, ymesh] = mesh(xu, yu);
 
-      // Load all frame file names
-      fetch('Frames/PM25_1/index.json')
-        .then(r => r.json())
-        .then(index => {
-          timestamps = index;
-          slider.max = timestamps.length - 1;
-          loadFrame(0);
-        });
-        function categorizePM25(Zraw) {
+      // Function to categorize PM2.5 values
+      function categorizePM25(Zraw) {
         return Zraw.map(row => row.map(val => {
             if (val === 0) return 0;              // No Data
             else if (val <= 11) return 1;                          // Good
@@ -118,161 +265,346 @@
             else if (val <= 249) return 5;                         // Very Unhealthy
             else return 6;                                         // Hazardous
         }));
-        }
-      // Render a frame
-    function loadFrame(i) {
-  const timestamp = timestamps[i];
-  fetch(`Frames/PM25_1/${timestamp}.json`)
-    .then(r => r.json())
-    .then(Zraw => {
-        const Z = categorizePM25(Zraw);
-      // 3D plot
-      Plotly.newPlot("plot3d", [{
-        type: 'surface',
-        x: xmesh,
-        y: ymesh,
-        z: Z,
-        colorscale: customColor,
-        cmin: 0, cmax: 6,
-        showscale: false
-      }], {
-        title: {text: `3D - ${timestamp}`},
-        scene: {
-          zaxis: {
-            title: { text: 'AQI' },
-            range: [0, 6]
-          },
-          xaxis: {},
-          yaxis: {},
-          camera: {
-            eye: { x: -1.6, y: -1.6, z: 0.8 }
-          }
-        }
-      });
+      }
 
-      // 2D plot
-      Plotly.newPlot("plot2d", [{
+      // Function to update static map (no animation, just coordinate selection)
+      function updateStaticMap(Z, timestamp, defaultColor = '#808080') {
+        console.log("Updating static map for timestamp:", timestamp);
+        Plotly.newPlot("staticmap", [{
+          type: 'heatmap',
+          z: Z,
+          x: X,
+          y: Y,
+          colorscale: [[0, defaultColor], [1, defaultColor]], // Single gray color
+          zmin: 0, zmax: 6,
+          showscale: false,
+          zauto: false,
+          connectgaps: false,
+          hoverongaps: false,
+          zsmooth: false,
+          hoverinfo: 'x+y+z',
+          hoverlabel: {bgcolor: '#FFF'},
+          showgrid: true,
+          gridcolor: '#808080'
+        }], {
+          title: { 
+            text: `Static Coordinate Selector - ${timestamp}`,
+            font: { size: 14 }
+          },
+          xaxis: { title: 'X Coordinate', fixedrange: true },
+          yaxis: { title: 'Y Coordinate', fixedrange: true },
+          dragmode: false
+        });
+      }
+
+      // Render a frame function - defined in main Promise scope
+      function loadFrame(i) {
+        if (!timestamps || timestamps.length === 0) {
+          console.error("Timestamps not loaded yet");
+          return;
+        }
+        
+        const timestamp = timestamps[i];
+        currentFrame = i;
+        
+        console.log(`Loading frame ${i + 1}/${timestamps.length}: ${timestamp}`);
+        
+        // Update frame counter
+        const frameCounter = document.getElementById("frameCounter");
+        if (frameCounter) {
+          frameCounter.textContent = `${i + 1}/${timestamps.length}`;
+        }
+      
+      fetch(`Frames/PM25_1/${timestamp}.json`)
+        .then(r => r.json())
+        .then(Zraw => {
+            const Z = categorizePM25(Zraw);
+            
+            console.log("Updating 3D plot and Interactive Map for timestamp:", timestamp);
+            
+          // 3D plot
+          Plotly.newPlot("plot3d", [{
+            type: 'surface',
+            x: xmesh,
+            y: ymesh,
+            z: Z,
+            colorscale: customColor,
+            cmin: 0, cmax: 6,
+            showscale: false
+          }], {
+            title: {text: `3D Surface - ${timestamp}`},
+            scene: {
+              zaxis: {
+                title: { text: 'AQI Category' },
+                range: [0, 6]
+              },
+              xaxis: { title: { text: 'X Coordinate' } },
+              yaxis: { title: { text: 'Y Coordinate' } },
+              camera: {
+                eye: { x: -1.6, y: -1.6, z: 0.8 }
+              }
+            }
+          });
+
+      // Common configuration for 2D views
+      const common2DConfig = {
         type: 'heatmap',
         z: Z,
         x: X,
         y: Y,
         colorscale: customColor,
-        zmin: 0, zmax: 6,
-        showscale: true,
-        colorbar: {
-          tickvals: [0, 1, 2, 3, 4, 5, 6],
-          ticktext: [
-            "0", "1 - Good (0-11)", "2 - Moderate (12-34)", "3 - Unhealthy for Sensitive (35-54)",
-            "4 - Unhealthy (55-150)", "5 - Very Unhealthy (150-249)", "6 - Hazardous (>250)"
-          ],
-          title: {text: "AQI Category (µg/m³)"},
-        }
+        zmin: 0, zmax: 6
+      };
+
+      const commonLayout = {
+        xaxis: { title: '', fixedrange: true },
+        yaxis: { title: '', fixedrange: true },
+        dragmode: false
+      };
+
+          // Interactive map (top-right) - now with color scale
+          Plotly.newPlot("map2d", [{
+            ...common2DConfig,
+            showscale: true,
+            colorbar: {
+              tickvals: [0, 1, 2, 3, 4, 5, 6],
+              ticktext: [
+                "0", "1 - Good (0-11)", "2 - Moderate (12-34)", "3 - Unhealthy for Sensitive (35-54)",
+                "4 - Unhealthy (55-150)", "5 - Very Unhealthy (150-249)", "6 - Hazardous (>250)"
+              ],
+              title: {text: "AQI Category"},
+            }
+          }], {
+            ...commonLayout,
+            title: { text: `Interactive Map - ${timestamp} (Click to Select Location)`}
+          });
+          
+          // Update static map only for the first frame (no animation)
+          if (i === 0) {
+            updateStaticMap(Z, timestamp);
+          }
+        })
+        .catch(err => {
+          console.error("Error loading frame:", err);
+        });
+      }
+
+      // Initialize empty line plot
+      Plotly.newPlot("lineplot", [{
+        type: 'scatter',
+        x: [],
+        y: []
       }], {
-        title: { text: `2D Heatmap - ${timestamp}`},
-        xaxis: { title: ''},
-        yaxis: { title: ''}
+        title: { 
+          text: 'Time Series Plot - Click on Interactive Map to Load Data',
+          font: { size: 16 }
+        },
+        xaxis: { title: 'Timestamp' },
+        yaxis: { title: 'PM2.5 Value (µg/m³)' },
+        annotations: [{
+          text: 'Click on any location in the Static Coordinate Selector Map <br>to show PM2.5 time series data for that point',
+          showarrow: false,
+          font: { size: 14, color: '#666' },
+          xref: 'paper',
+          yref: 'paper',
+          x: 0.5,
+          y: 0.5
+        }]
       });
+      
+      // Initialize static coordinate selection map (bottom left)
+      Plotly.newPlot("staticmap", [{
+        type: 'heatmap',
+        z: [[0]], // Will be updated with actual data
+        x: [0],
+        y: [0],
+        colorscale: customColor,
+        zmin: 0, zmax: 6,
+        showscale: false
+      }], {
+        title: { 
+          text: 'Static Coordinate Selector',
+          font: { size: 14 }
+        },
+        xaxis: { title: 'X Coordinate', fixedrange: true },
+        yaxis: { title: 'Y Coordinate', fixedrange: true },
+        dragmode: false,
+        annotations: [{
+          text: 'Click to select coordinates<br>No animation - shows current frame data',
+          showarrow: false,
+          font: { size: 12, color: '#666' },
+          xref: 'paper',
+          yref: 'paper',
+          x: 0.5,
+          y: 0.5
+        }]
+      });
+      
+      // Load all frame file names and initialize
+      console.log("Starting to fetch index.json...");
+      fetch('Frames/PM25_1/index.json')
+        .then(r => {
+          if (!r.ok) {
+            throw new Error(`HTTP error! status: ${r.status}`);
+          }
+          return r.json();
+        })
+        .then(index => {
+          timestamps = index;
+          slider.max = timestamps.length - 1;
+          console.log("Loaded timestamps:", timestamps.length, "frames");
+          console.log("Map element ready for click events");
+          loadFrame(0); // Load first frame
+
+          // Set up all control event handlers AFTER timestamps are loaded
+          slider.addEventListener("input", () => {
+            const frameIndex = parseInt(slider.value);
+            console.log("Slider changed to frame:", frameIndex);
+            loadFrame(frameIndex);
+            currentFrame = frameIndex;
+          });
+
+          speedBtn.addEventListener("click", () => {
+            isFast = !isFast;
+            speed = isFast ? 2 : 5;  // 2x speed is 250ms
+            speedBtn.innerText = `Speed: ${isFast ? "2x" : "1x"}`;
+            console.log("Speed changed to:", isFast ? "2x" : "1x");
+
+            // Restart animation with new speed if it's running
+            if (intervalId !== null) {
+              clearInterval(intervalId);
+              intervalId = setInterval(() => {
+                currentFrame = (currentFrame + 1) % timestamps.length;
+                loadFrame(currentFrame);
+                slider.value = currentFrame; // Keep slider in sync
+              }, speed);
+            }
+          });
+
+          startBtn.addEventListener("click", () => {
+            console.log("Start button clicked, timestamps length:", timestamps.length);
+            if (intervalId === null) {
+              intervalId = setInterval(() => {
+                currentFrame = (currentFrame + 1) % timestamps.length;
+                console.log("Animation frame:", currentFrame);
+                loadFrame(currentFrame);
+                slider.value = currentFrame; // Update slider position
+              }, speed);
+            }
+          });
+
+          stopBtn.addEventListener("click", () => {
+            console.log("Stop button clicked");
+            clearInterval(intervalId);
+            intervalId = null;
+          });
+          // Set up click event handler for the map (after timestamps are loaded)
+          console.log("Registering click event handler for map2d");
+          const mapElement = document.getElementById('map2d');
+          console.log("Map element found:", mapElement);
+          
+          if (!mapElement) {
+            console.error("ERROR: map2d element not found!");
+            return;
+          }
+          
+          mapElement.on('plotly_click', function(data) {
+              console.log("Map clicked! Data:", data);
+              if (data.points.length > 0) {
+                  const pt = data.points[0];
+                  const xval = pt.x;
+                  const yval = pt.y;
+
+                  selectedXIdx = X.indexOf(xval);
+                  selectedYIdx = Y.indexOf(yval);
+                  console.log("Selected location:", xval, yval);
+
+                  if (selectedXIdx !== -1 && selectedYIdx !== -1) {
+                      loadLineChart(selectedXIdx, selectedYIdx);
+                  } else {
+                      console.error("Invalid coordinates selected:", xval, yval);
+                  }
+              }
+          });
+
+          // Set up click event handler for the static map (coordinate selector)
+          console.log("Registering click event handler for staticmap");
+          const staticMapElement = document.getElementById('staticmap');
+          console.log("Static map element found:", staticMapElement);
+          
+          if (!staticMapElement) {
+            console.error("ERROR: staticmap element not found!");
+            return;
+          }
+          
+          staticMapElement.on('plotly_click', function(data) {
+              console.log("Static map clicked! Data:", data);
+              if (!data || !data.points || data.points.length === 0) {
+                  console.error("No valid click data received");
+                  return;
+              }
+
+              const pt = data.points[0];
+              if (!pt || pt.x === undefined || pt.y === undefined) {
+                  console.error("Invalid point data:", pt);
+                  return;
+              }
+
+              const xval = pt.x;
+              const yval = pt.y;
+
+              // Find nearest valid indices since exact matches might fail due to floating point precision
+              const findNearestIndex = (val, arr) => {
+                  let nearest = 0;
+                  let minDiff = Math.abs(val - arr[0]);
+                  for (let i = 1; i < arr.length; i++) {
+                      const diff = Math.abs(val - arr[i]);
+                      if (diff < minDiff) {
+                          minDiff = diff;
+                          nearest = i;
+                      }
+                  }
+                  return nearest;
+              };
+
+              selectedXIdx = findNearestIndex(xval, X);
+              selectedYIdx = findNearestIndex(yval, Y);
+              console.log("Selected location from static map:", X[selectedXIdx], Y[selectedYIdx]);
+
+              try {
+                  loadLineChart(selectedXIdx, selectedYIdx);
+                  
+                  // Update static map title to show selected coordinates
+                  Plotly.relayout("staticmap", {
+                      title: { 
+                          text: `Static Coordinate Selector - Selected Point: (${X[selectedXIdx].toFixed(1)}, ${Y[selectedYIdx].toFixed(1)})`,
+                          font: { size: 14 }
+                      }
+                  });
+              } catch (err) {
+                  console.error("Error loading line chart:", err);
+                  // Show error in the line plot area
+                  Plotly.newPlot("lineplot", [{
+                      type: 'scatter',
+                      x: [],
+                      y: []
+                  }], {
+                      title: { 
+                          text: 'Error loading data. Please try another location.',
+                          font: { size: 14, color: 'red' }
+                      }
+                  });
+              }
+          });
+        })
+        .catch(err => {
+          console.error("Error loading timestamps:", err);
+        });
     })
     .catch(err => {
       console.error("Error loading frame:", err);
     });
 
-    let selectedXIdx = null;
-    let selectedYIdx = null;
-
-    let xi = 540.5;
-    let yi = 3923.5;
-
-    // New: capture click event from 2D plot
-    document.getElementById('plot2d').on('plotly_click', function(data) {
-        if (data.points.length > 0) {
-            const pt = data.points[0];
-            const xval = pt.x;
-            const yval = pt.y;
-
-            selectedXIdx = X.indexOf(xval);
-            selectedYIdx = Y.indexOf(yval);
-            console.log("Clicked at", selectedXIdx, selectedYIdx);
-
-            if (selectedXIdx !== -1 && selectedYIdx !== -1) {
-                loadLineChart(selectedXIdx, selectedYIdx);
-            }
-        }
-    });
-
-    // Function to load and render line chart at selected point
-    function loadLineChart(xi, yi) {
-        const valuesOverTime = [];
-
-        let fetches = timestamps.map(ts =>
-            fetch(`Frames/PM25_1/${ts}.json`)
-                .then(r => r.json())
-                .then(Z => valuesOverTime.push(Z[yi][xi]))
-        );
-
-        Promise.all(fetches).then(() => {
-            Plotly.newPlot("lineplot", [{
-                x: timestamps,
-                y: valuesOverTime,
-                mode: 'lines+markers',
-                line: { color: '#ED1C24' },
-                marker: { size: 4 },
-                name: `PM2.5 at (x=${X[xi]}, y=${Y[yi]})`
-            }], {
-                title: `Time Series of PM2.5 at Selected Point`,
-                xaxis: { title: "Timestamp" },
-                yaxis: { title: "AQI Level", range: [0, 6] }
-            });
-        });
-    }
-
-
-
-    }
-
-    LineChart.addEventListener("click",  () => {
-        loadLineChart(540.5, 3923.5);
-    });
-
-
-    slider.addEventListener("input", () => {
-    loadFrame(parseInt(slider.value));
-    });
-
-    speedBtn.addEventListener("click", () => {
-    isFast = !isFast;
-    speed = isFast ? 250 : 500;  // 2x speed is 250ms
-    speedBtn.innerText = `Speed: ${isFast ? "2x" : "1x"}`;
-
-    // Restart animation with new speed if it's running
-    if (intervalId !== null) {
-        clearInterval(intervalId);
-        intervalId = setInterval(() => {
-        currentFrame = (currentFrame + 1) % timestamps.length;
-        loadFrame(currentFrame);
-        }, speed);
-    }
-    });
-
-
-        startBtn.addEventListener("click", () => {
-    if (intervalId === null) {
-    intervalId = setInterval(() => {
-        currentFrame = (currentFrame + 1) % timestamps.length;
-        loadFrame(currentFrame);
-    }, speed);}
-    });
-
-    stopBtn.addEventListener("click", () => {
-        clearInterval(intervalId);
-        intervalId = null;
-    });
-
-
-
-    });
-
-    
   </script>
 </body>
 </html>
