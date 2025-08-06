@@ -40,7 +40,6 @@
 <body>
     <nav>
         <ul>
-        <li><a href="index.html">Home</a></li>
         <li><a href="pm25.html">PM2.5</a></li>
         <li><a href="pm10.html">PM10</a></li>
         <li><a href="CO.html">CO</a></li>
@@ -185,12 +184,12 @@
     });
 
 
-        startBtn.addEventListener("click", () => {
-    if (intervalId === null) {
-    intervalId = setInterval(() => {
-        currentFrame = (currentFrame + 1) % timestamps.length;
-        loadFrame(currentFrame);
-    }, speed);}
+    startBtn.addEventListener("click", () => {
+      if (intervalId === null) {
+      intervalId = setInterval(() => {
+          currentFrame = (currentFrame + 1) % timestamps.length;
+          loadFrame(currentFrame);
+      }, speed);}
     });
 
     stopBtn.addEventListener("click", () => {
