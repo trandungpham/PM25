@@ -5,47 +5,14 @@
   <script src="https://cdn.plot.ly/plotly-3.0.3.min.js" charset="utf-8"></script>
 
   <style>
-    .grid-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
-      gap: 10px;
-      padding: 10px;
-      height: calc(100vh - 150px); /* Adjust based on navbar and controls height */
-    }
-
-    .grid-item {
-      width: 100%;
-      height: 100%;
-      min-height: 400px;
-    }
-
-    /* Bottom row with 2:8 ratio */
-    .bottom-row-container {
-      display: grid;
-      grid-template-columns: 4fr 6fr; /* 2:8 ratio */
-      gap: 10px;
-      grid-column: 1 / -1; /* Span entire row */
-      width: 100%;
-      height: 100%;
-      min-height: 400px;
-    }
-
-    .bottom-row-item {
-      width: 100%;
-      height: 100%;
-    }
-
     #controls {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 10px;
-      margin: 0;
+      padding: 5px 10px;
+      margin: 0;           /* reduce vertical space */
       background-color: #f2efef;
-      border-bottom: 1px solid #ccc;
     }
-
     /* Navbar Style */
     nav {
       background-color: #333;
@@ -68,6 +35,193 @@
       text-decoration: underline;
     }
 
+    /* Popup Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.6);
+      backdrop-filter: blur(3px);
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 5% auto;
+      padding: 0;
+      border: none;
+      border-radius: 15px;
+      width: 80%;
+      max-width: 900px;
+      height: 70%;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      animation: slideIn 0.3s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(-50px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-header {
+      background: rgba(255,255,255,0.95);
+      padding: 15px 20px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      margin: 0;
+      color: #333;
+      font-size: 1.5em;
+      font-weight: 600;
+    }
+
+    .close {
+      color: #999;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: color 0.3s;
+      background: none;
+      border: none;
+    }
+
+    .close:hover {
+      color: #555;
+    }
+
+    .modal-body {
+      background: rgba(255,255,255,0.98);
+      height: calc(100% - 60px);
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #lineChart {
+      width: 100%;
+      flex: 1;
+      min-height: 400px;
+    }
+
+    .coordinate-info {
+      background: rgba(102, 126, 234, 0.1);
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      border-left: 4px solid #667eea;
+      flex-shrink: 0;
+    }
+
+    .chart-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: rgba(240, 248, 255, 0.8);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-btn {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 4px 12px;
+      border-radius: 15px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+    }
+
+    .control-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .control-btn.active {
+      background: linear-gradient(135deg, #28a745, #20c997);
+    }
+
+    .data-range-slider {
+      width: 100px;
+      margin: 0 5px;
+    }
+
+    .time-input {
+      border: 1px solid #ddd;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      width: 50px;
+    }
+
+    .aggregation-select {
+      border: 1px solid #ddd;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .fullscreen-btn {
+      background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+      color: white;
+      border: none;
+      padding: 4px 12px;
+      border-radius: 15px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(255, 107, 107, 0.2);
+    }
+
+    .fullscreen-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(255, 107, 107, 0.3);
+    }
+
+    .modal-content.fullscreen {
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      max-width: none;
+      border-radius: 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 1001;
+    }
+
+    .modal-content.fullscreen .modal-body {
+      height: calc(100vh - 60px);
+      padding: 20px;
+    }
+
+    .modal-content.fullscreen #lineChart {
+      min-height: calc(100vh - 200px);
+    }
+
   </style>
 </head>
 <body>
@@ -79,22 +233,61 @@
         </ul>
     </nav>
     <h2>PM2.5 AQI Viewer</h2>
+    <div style="display: flex;">
+        <div id="plot3d" style="width: 50%; height: 630px;"></div>
+        <div id="plot2d" style="width: 50%; height: 630px;"></div>
+    </div>
     <div id="controls">
         <button id="startBtn">Start</button>
         <button id="stopBtn">Stop</button>
         <button id="speedBtn">Speed: 1x</button>
         <input type="range" id="slider" min="0" max="N-1" value="0" step="1">
-        <span style="margin-left: 10px; font-size: 12px;">Frame: <span id="frameCounter">0</span></span>
     </div>
-    <div class="grid-container">
-        <!-- Top row: 3D plot and Interactive Map -->
-        <div id="plot3d" class="grid-item"></div>
-        <div id="map2d" class="grid-item"></div>
-        
-        <!-- Bottom row: Static Map (20%) and Time Series (80%) -->
-        <div class="bottom-row-container">
-            <div id="staticmap" class="bottom-row-item"></div>
-            <div id="lineplot" class="bottom-row-item"></div>
+
+    <!-- Modal for Line Chart -->
+    <div id="chartModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">PM2.5 AQI Time Series</h3>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="fullscreen-btn" onclick="toggleFullscreen()" id="fullscreenBtn">⛶ Fullscreen</button>
+                    <button class="close" onclick="closeModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="coordinate-info" id="coordinateInfo"></div>
+                
+                <!-- Chart Controls -->
+                <div class="chart-controls">
+                    <div class="control-group">
+                        <span style="font-size: 10px; color: #666; font-weight: bold;">Data View:</span>
+                        <button class="control-btn active" id="aggregateBtn" onclick="toggleAggregation()">📊 Smart View</button>
+                        <select class="aggregation-select" id="aggregationMode">
+                            <option value="10">Every 10th point</option>
+                            <option value="20">Every 20th point</option>
+                            <option value="50">Every 50th point</option>
+                            <option value="hourly">Hourly avg</option>
+                            <option value="daily">Daily avg</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group">
+                        <span style="font-size: 10px; color: #666;">Range:</span>
+                        <input type="range" class="data-range-slider" id="startRange" min="0" max="100" value="0">
+                        <span style="font-size: 10px; color: #666;">to</span>
+                        <input type="range" class="data-range-slider" id="endRange" min="0" max="100" value="100">
+                        <button class="control-btn" onclick="applyDataRange()" style="font-size: 10px;">Apply</button>
+                    </div>
+                    
+                    <div class="control-group">
+                        <button class="control-btn" onclick="resetView()">🔄 Reset</button>
+                        <button class="control-btn" onclick="showStatistics()">📈 Stats</button>
+                        <button class="control-btn" onclick="exportChart()">💾 Export</button>
+                    </div>
+                </div>
+
+                <div id="lineChart"></div>
+            </div>
         </div>
     </div>
 
@@ -104,28 +297,7 @@
     let currentFrame = 0;
     let speed = 500; // default = 1x speed (500 ms)
     let isFast = false;
-    
-    // Default location coordinates
-    const DEFAULT_X = 540.5;
-    const DEFAULT_Y = 3923.5;
-    
-    // Helper to find the nearest index in a coordinate array
-    function findNearestIndex(val, arr) {
-        let nearest = 0;
-        let minDiff = Math.abs(val - arr[0]);
-        for (let i = 1; i < arr.length; i++) {
-            const diff = Math.abs(val - arr[i]);
-            if (diff < minDiff) {
-                minDiff = diff;
-                nearest = i;
-            }
-        }
-        return nearest;
-    }
-    
-    let selectedXIdx = null;
-    let selectedYIdx = null;
-    
+    let allFrameData = {}; // Store all frame data for time series
     let customColor = [
             [0, '#ffffff'],   // No Data
             [1 / 6, '#00A651'],  // Good
@@ -140,122 +312,418 @@
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
 
-    // Function to load and render line chart at selected point
-    function loadLineChart(xi, yi) {
-        console.log("loadLineChart called with indices:", xi, yi);
-        console.log("Coordinates:", X ? X[xi] : 'X undefined', Y ? Y[yi] : 'Y undefined');
+    // Modal functions
+    function openModal() {
+        document.getElementById('chartModal').style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('chartModal').style.display = 'none';
+        // Exit fullscreen if active
+        const modalContent = document.querySelector('.modal-content');
+        if (modalContent.classList.contains('fullscreen')) {
+            modalContent.classList.remove('fullscreen');
+            document.getElementById('fullscreenBtn').innerHTML = '⛶ Fullscreen';
+        }
+    }
+
+    // Fullscreen functionality
+    let isFullscreen = false;
+
+    function toggleFullscreen() {
+        const modalContent = document.querySelector('.modal-content');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
         
-        // Show loading state
-        Plotly.newPlot("lineplot", [{
+        isFullscreen = !isFullscreen;
+        
+        if (isFullscreen) {
+            modalContent.classList.add('fullscreen');
+            fullscreenBtn.innerHTML = '⛶ Exit Fullscreen';
+            
+            // Resize chart after fullscreen transition
+            setTimeout(() => {
+                Plotly.Plots.resize('lineChart');
+            }, 300);
+        } else {
+            modalContent.classList.remove('fullscreen');
+            fullscreenBtn.innerHTML = '⛶ Fullscreen';
+            
+            // Resize chart after exiting fullscreen
+            setTimeout(() => {
+                Plotly.Plots.resize('lineChart');
+            }, 300);
+        }
+    }
+
+    // Handle ESC key to exit fullscreen
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && isFullscreen) {
+            toggleFullscreen();
+        }
+    });
+
+    // Export chart functionality
+    function exportChart() {
+        const options = {
+            format: 'png',
+            width: isFullscreen ? 1920 : 800,
+            height: isFullscreen ? 1080 : 600,
+            filename: `PM2.5_AQI_TimeSeries_${Date.now()}`
+        };
+        
+        Plotly.downloadImage('lineChart', options)
+            .then(() => {
+                console.log('Chart exported successfully');
+            })
+            .catch(err => {
+                console.error('Error exporting chart:', err);
+                alert('Export failed. Please try again.');
+            });
+    }
+
+    // Chart optimization variables
+    let originalTimeSeriesData = [];
+    let originalTimeLabels = [];
+    let currentDisplayData = [];
+    let currentDisplayLabels = [];
+    let isAggregated = true;
+
+    // Data aggregation functions
+    function aggregateData(data, labels, mode) {
+        if (mode === 'hourly') {
+            return aggregateByTime(data, labels, 'hour');
+        } else if (mode === 'daily') {
+            return aggregateByTime(data, labels, 'day');
+        } else {
+            // Sample every nth point
+            const step = parseInt(mode);
+            const aggregatedData = [];
+            const aggregatedLabels = [];
+            
+            for (let i = 0; i < data.length; i += step) {
+                aggregatedData.push(data[i]);
+                aggregatedLabels.push(labels[i]);
+            }
+            
+            return { data: aggregatedData, labels: aggregatedLabels };
+        }
+    }
+
+    function aggregateByTime(data, labels, period) {
+        const grouped = {};
+        
+        for (let i = 0; i < data.length; i++) {
+            let key;
+            if (period === 'hour') {
+                // Group by hour (assuming labels are timestamps)
+                key = labels[i].substring(0, 13); // YYYY-MM-DD_HH
+            } else {
+                // Group by day
+                key = labels[i].substring(0, 10); // YYYY-MM-DD
+            }
+            
+            if (!grouped[key]) {
+                grouped[key] = { values: [], count: 0 };
+            }
+            grouped[key].values.push(data[i]);
+            grouped[key].count++;
+        }
+        
+        const aggregatedData = [];
+        const aggregatedLabels = [];
+        
+        Object.keys(grouped).forEach(key => {
+            const avg = grouped[key].values.reduce((a, b) => a + b, 0) / grouped[key].count;
+            aggregatedData.push(avg);
+            aggregatedLabels.push(key);
+        });
+        
+        return { data: aggregatedData, labels: aggregatedLabels };
+    }
+
+    function toggleAggregation() {
+        isAggregated = !isAggregated;
+        const btn = document.getElementById('aggregateBtn');
+        
+        if (isAggregated) {
+            btn.textContent = '📊 Smart View';
+            btn.classList.add('active');
+            applyAggregation();
+        } else {
+            btn.textContent = '📊 Full Data';
+            btn.classList.remove('active');
+            currentDisplayData = [...originalTimeSeriesData];
+            currentDisplayLabels = [...originalTimeLabels];
+            updateChart();
+        }
+    }
+
+    function applyAggregation() {
+        const mode = document.getElementById('aggregationMode').value;
+        const result = aggregateData(originalTimeSeriesData, originalTimeLabels, mode);
+        currentDisplayData = result.data;
+        currentDisplayLabels = result.labels;
+        updateChart();
+    }
+
+    function applyDataRange() {
+        const startPercent = parseInt(document.getElementById('startRange').value);
+        const endPercent = parseInt(document.getElementById('endRange').value);
+        
+        const startIdx = Math.floor((startPercent / 100) * originalTimeSeriesData.length);
+        const endIdx = Math.floor((endPercent / 100) * originalTimeSeriesData.length);
+        
+        if (startIdx <= endIdx) {
+            const rangeData = originalTimeSeriesData.slice(startIdx, endIdx + 1);
+            const rangeLabels = originalTimeLabels.slice(startIdx, endIdx + 1);
+            
+            if (isAggregated) {
+                const mode = document.getElementById('aggregationMode').value;
+                const result = aggregateData(rangeData, rangeLabels, mode);
+                currentDisplayData = result.data;
+                currentDisplayLabels = result.labels;
+            } else {
+                currentDisplayData = rangeData;
+                currentDisplayLabels = rangeLabels;
+            }
+            updateChart();
+        }
+    }
+
+    function resetView() {
+        document.getElementById('startRange').value = 0;
+        document.getElementById('endRange').value = 100;
+        document.getElementById('aggregationMode').value = '10';
+        isAggregated = true;
+        document.getElementById('aggregateBtn').classList.add('active');
+        document.getElementById('aggregateBtn').textContent = '📊 Smart View';
+        applyAggregation();
+    }
+
+    function showStatistics() {
+        const stats = calculateStatistics(originalTimeSeriesData);
+        alert(`Statistics for this location:\n\n +
+              Total Data Points: ${originalTimeSeriesData.length}\n +
+              Average AQI: ${stats.mean.toFixed(2)}\n +
+              Minimum AQI: ${stats.min.toFixed(2)}\n +
+              Maximum AQI: ${stats.max.toFixed(2)}\n +
+              Standard Deviation: ${stats.std.toFixed(2)}\n +
+              Good Days (≤1): ${stats.goodDays}\n +
+              Unhealthy Days (>3): ${stats.unhealthyDays}`);
+    }
+
+    function calculateStatistics(data) {
+        const mean = data.reduce((a, b) => a + b, 0) / data.length;
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / data.length;
+        const std = Math.sqrt(variance);
+        const goodDays = data.filter(v => v <= 1).length;
+        const unhealthyDays = data.filter(v => v > 3).length;
+        
+        return { mean, min, max, std, goodDays, unhealthyDays };
+    }
+
+    function updateChart() {
+        const trace = {
+            x: currentDisplayLabels,
+            y: currentDisplayData,
             type: 'scatter',
-            x: [],
-            y: []
-        }], {
-            title: { 
-                text: `Loading data for point (${X[xi]?.toFixed ? X[xi].toFixed(1) : X[xi]}, ${Y[yi]?.toFixed ? Y[yi].toFixed(1) : Y[yi]})...`,
-                font: { size: 14 }
+            mode: 'lines+markers',
+            name: 'PM2.5 AQI',
+            line: {
+                color: '#667eea',
+                width: 2
+            },
+            marker: {
+                color: currentDisplayData.map(val => {
+                    if (val <= 1) return '#00A651';
+                    else if (val <= 2) return '#FFC627';
+                    else if (val <= 3) return '#F58220';
+                    else if (val <= 4) return '#ED1C24';
+                    else if (val <= 5) return '#662D91';
+                    else return '#4A0A38';
+                }),
+                size: currentDisplayData.length > 100 ? 4 : 6,
+                line: { color: '#fff', width: 1 }
+            },
+            hovertemplate: '<b>%{x}</b><br>AQI: %{y:.2f}<br><extra></extra>'
+        };
+
+        const layout = {
+            title: {
+                text: `PM2.5 AQI Time Series (${currentDisplayData.length} points displayed)`,
+                font: { size: 16, color: '#333' }
+            },
+            xaxis: {
+                title: 'Time',
+                tickangle: -45,
+                gridcolor: '#e0e0e0'
+            },
+            yaxis: {
+                title: 'AQI Level',
+                range: [0, Math.max(6, Math.max(...currentDisplayData) * 1.1)],
+                gridcolor: '#e0e0e0'
+            },
+            plot_bgcolor: '#fafafa',
+            paper_bgcolor: 'transparent',
+            margin: { l: 50, r: 30, t: 50, b: 80 },
+            hovermode: 'closest',
+            showlegend: false
+        };
+
+        // Add background shapes for AQI levels
+        if (currentDisplayData.length > 0 && currentDisplayLabels.length > 0) {
+            layout.shapes = [
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 0, y1: 1, fillcolor: '#00A651', opacity: 0.1, line: {width: 0}},
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 1, y1: 2, fillcolor: '#FFC627', opacity: 0.1, line: {width: 0}},
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 2, y1: 3, fillcolor: '#F58220', opacity: 0.1, line: {width: 0}},
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 3, y1: 4, fillcolor: '#ED1C24', opacity: 0.1, line: {width: 0}},
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 4, y1: 5, fillcolor: '#662D91', opacity: 0.1, line: {width: 0}},
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 5, y1: 6, fillcolor: '#4A0A38', opacity: 0.1, line: {width: 0}}
+            ];
+        }
+
+        Plotly.newPlot('lineChart', [trace], layout, {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+            scrollZoom: true,
+            doubleClick: 'reset',
+            showTips: true
+        }).then(() => {
+            // Ensure chart resizes properly in fullscreen
+            if (isFullscreen) {
+                setTimeout(() => {
+                    Plotly.Plots.resize('lineChart');
+                }, 100);
+            }
+        });
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('chartModal');
+        if (event.target === modal) {
+            closeModal();
+        }
+    }
+
+    // Function to get AQI category name
+    function getAQICategory(value) {
+        if (value <= 1) return "Good";
+        else if (value <= 2) return "Moderate";
+        else if (value <= 3) return "Unhealthy for Sensitive";
+        else if (value <= 4) return "Unhealthy";
+        else if (value <= 5) return "Very Unhealthy";
+        else return "Hazardous";
+    }
+
+    // Function to create time series chart for a specific coordinate
+    function createTimeSeriesChart(xCoord, yCoord, xIndex, yIndex) {
+        const timeSeriesData = [];
+        const timeLabels = [];
+        
+        console.log('Creating time series for grid position:', xIndex, ',', yIndex);
+        console.log('Available cached frames:', Object.keys(allFrameData).length);
+        console.log('Total timestamps available:', timestamps.length);
+        
+        // Extract data from loaded frames
+        timestamps.forEach(timestamp => {
+            if (allFrameData[timestamp]) {
+                const frameData = allFrameData[timestamp];
+                if (frameData && frameData[yIndex] && frameData[yIndex][xIndex] !== undefined) {
+                    const value = frameData[yIndex][xIndex];
+                    if (value !== null && !isNaN(value)) {
+                        timeSeriesData.push(value);
+                        timeLabels.push(timestamp);
+                    }
+                }
             }
         });
 
-        // Use the non-async approach that was working before
-        const valuesOverTime = [];
-        const timesArray = [];
+        console.log('Time series data points:', timeSeriesData.length);
+        console.log('Sample values:', timeSeriesData.slice(0, 5));
         
-        let fetches = timestamps.map(ts =>
-            fetch(`Frames/PM25_1/${ts}.json`)
-                .then(r => {
-                    if (!r.ok) {
-                        throw new Error(`HTTP error! status: ${r.status} for file: ${ts}.json`);
-                    }
-                    return r.json();
-                })
-                .then(Zraw => {
-                    const value = Zraw[yi] && Zraw[yi][xi] !== undefined ? Zraw[yi][xi] : 0;
-                    valuesOverTime.push(value);
-                    timesArray.push(ts);
-                })
-                .catch(err => {
-                    console.error(`Error loading ${ts}.json:`, err);
-                    valuesOverTime.push(0); // Add 0 for failed requests
-                    timesArray.push(ts);
-                })
-        );
+        if (timeSeriesData.length === 0) {
+            alert('No data available for this location. Please ensure the data files are loaded correctly.');
+            return;
+        }
 
-        Promise.all(fetches).then(() => {
-            console.log("Time series data loaded:", valuesOverTime.slice(0, 10));
-            
-            // Calculate statistics only from non-zero values
-            const nonZeroValues = valuesOverTime.filter(v => v > 0);
-            const maxValue = nonZeroValues.length > 0 ? Math.max(...nonZeroValues) : 100;
-            const minValue = nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0;
-            const avgValue = nonZeroValues.length > 0 ? nonZeroValues.reduce((a, b) => a + b, 0) / nonZeroValues.length : 0;
-            
-            Plotly.newPlot("lineplot", [{
-                x: timesArray,
-                y: valuesOverTime,
-                mode: 'lines+markers',
-                line: { color: '#ED1C24', width: 2 },
-                marker: { size: 4, color: '#ED1C24' },
-                name: `PM2.5 at {${X[xi]}, ${Y[yi]}}`
-            }], {
-                title: { 
-                    text: `Time Series at Point (${X[xi].toFixed(1)}, ${Y[yi].toFixed(1)})`,
-                    font: { size: 14 }
-                },
-                xaxis: { 
-                    title: "Timestamp",
-                    tickangle: 45
-                },
-                yaxis: { 
-                    title: "PM2.5 Value (µg/m³)",
-                    range: [0, maxValue * 1.1]
-                },
-                annotations: nonZeroValues.length > 0 ? [{
-                    text: `Max: ${maxValue.toFixed(1)}<br>Min: ${minValue.toFixed(1)}<br>Avg: ${avgValue.toFixed(1)}`,
-                    x: 1,
-                    y: 1,
-                    xref: 'paper',
-                    yref: 'paper',
-                    showarrow: false,
-                    bgcolor: 'rgba(255, 255, 255, 0.8)',
-                    bordercolor: '#ED1C24',
-                    borderwidth: 1,
-                    font: { size: 11 }
-                }] : [],
-                margin: { t: 40, r: 80, b: 60, l: 60 }
-            });
-            
-            console.log("Chart rendered successfully");
-        })
-        .catch(err => {
-            console.error("Error in Promise.all:", err);
-            Plotly.newPlot("lineplot", [{
-                type: 'scatter',
-                x: [],
-                y: []
-            }], {
-                title: { 
-                    text: `Error loading data: ${err.message}`,
-                    font: { size: 14, color: 'red' }
-                }
-            });
+        // Calculate statistics
+        const minAQI = Math.min(...timeSeriesData);
+        const maxAQI = Math.max(...timeSeriesData);
+        const avgAQI = timeSeriesData.reduce((a, b) => a + b, 0) / timeSeriesData.length;
+        
+        // Update coordinate info
+        document.getElementById('coordinateInfo').innerHTML = `
+            <strong>Location:</strong> Longitude ${xCoord.toFixed(4)}, Latitude ${yCoord.toFixed(4)}<br>
+            <strong>Grid Position:</strong> [${xIndex}, ${yIndex}]<br>
+            <strong>Current AQI:</strong> ${timeSeriesData[currentFrame]?.toFixed(2) || 'N/A'} (${getAQICategory(timeSeriesData[currentFrame] || 0)})<br>
+            <strong>Data Points:</strong> ${timeSeriesData.length}<br>
+            <strong>AQI Range:</strong> ${minAQI.toFixed(2)} - ${maxAQI.toFixed(2)} (avg: ${avgAQI.toFixed(2)})
+        `;
+
+        // Store original data
+        originalTimeSeriesData = [...timeSeriesData];
+        originalTimeLabels = [...timeLabels];
+        
+        // Apply default aggregation (every 10th point) for better performance
+        const defaultResult = aggregateData(timeSeriesData, timeLabels, '10');
+        currentDisplayData = defaultResult.data;
+        currentDisplayLabels = defaultResult.labels;
+        
+        // Reset controls
+        document.getElementById('startRange').value = 0;
+        document.getElementById('endRange').value = 100;
+        document.getElementById('aggregationMode').value = '10';
+        isAggregated = true;
+        document.getElementById('aggregateBtn').classList.add('active');
+        document.getElementById('aggregateBtn').textContent = '📊 Smart View';
+
+        // Setup event listeners for controls
+        document.getElementById('aggregationMode').addEventListener('change', function() {
+            if (isAggregated) {
+                applyAggregation();
+            }
         });
+
+        updateChart();
     }
 
     // Load coordinate grids
     Promise.all([
       fetch('Frames/PM25_1/xu.json').then(r => {
-        if (!r.ok) throw new Error(`Failed to load xu.json: ${r.status}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
         return r.json();
+      }).catch(err => {
+        console.error('Error loading xu.json:', err);
+        console.log('Using default X coordinates');
+        // Generate default coordinate grid if file missing
+        const defaultX = [];
+        for (let i = 0; i < 50; i++) {
+          defaultX.push(126.0 + (i * 0.01)); // Approximate longitude range for Korea
+        }
+        return defaultX;
       }),
       fetch('Frames/PM25_1/yu.json').then(r => {
-        if (!r.ok) throw new Error(`Failed to load yu.json: ${r.status}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
         return r.json();
+      }).catch(err => {
+        console.error('Error loading yu.json:', err);
+        console.log('Using default Y coordinates');
+        // Generate default coordinate grid if file missing
+        const defaultY = [];
+        for (let i = 0; i < 49; i++) {
+          defaultY.push(33.0 + (i * 0.01)); // Approximate latitude range for Korea
+        }
+        return defaultY;
       })
     ]).then(([xu, yu]) => {
+      console.log('Loaded coordinates - X:', xu.length, 'Y:', yu.length);
       X = xu;
       Y = yu;
-      console.log("Coordinates loaded successfully. X length:", X.length, "Y length:", Y.length);
 
       // Generate meshgrid
       const mesh = (a, b) => {
@@ -268,7 +736,6 @@
       };
       const [xmesh, ymesh] = mesh(xu, yu);
 
-      // Function to categorize PM2.5 values
       function categorizePM25(Zraw) {
         return Zraw.map(row => row.map(val => {
             if (val === 0) return 0;              // No Data
@@ -281,79 +748,141 @@
         }));
       }
 
-      // Function to update static map (no animation, just coordinate selection)
-      function updateStaticMap(Z, timestamp, highlight = null, defaultColor = '#808080') {
-        console.log("Updating static map for timestamp:", timestamp);
-        
-        const traces = [{
-          type: 'heatmap',
-          z: Z,
-          x: X,
-          y: Y,
-          colorscale: [[0, defaultColor], [1, defaultColor]], // Single gray color
-          zmin: 0, zmax: 6,
-          showscale: false,
-          zauto: false,
-          connectgaps: false,
-          hoverongaps: false,
-          zsmooth: false,
-          hoverinfo: 'x+y+z',
-          hoverlabel: {bgcolor: '#FFF'},
-          showgrid: true,
-          gridcolor: '#808080'
-        }];
-        
-        // Add highlighted point (e.g., default location) if provided
-        if (highlight && highlight.x !== undefined && highlight.y !== undefined) {
-          traces.push({
-            type: 'scatter',
-            x: [highlight.x],
-            y: [highlight.y],
-            mode: 'markers',
-            marker: { color: 'red', size: 10, symbol: 'circle' },
-            name: 'Selected Point',
-            hoverinfo: 'x+y'
-          });
-        }
-        
-        Plotly.newPlot("staticmap", traces, {
-          title: { 
-            text: `Static Coordinate Selector - ${timestamp}`,
-            font: { size: 14 }
-          },
-          xaxis: { title: 'X Coordinate', fixedrange: true },
-          yaxis: { title: 'Y Coordinate', fixedrange: true },
-          dragmode: false
+      // Load all frame file names
+      fetch('Frames/PM25_1/index.json')
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+          return r.json();
+        })
+        .then(index => {
+          console.log('Loaded index:', index?.length || 0, 'frames');
+          
+          // If index is empty, generate file list from known pattern
+          if (!index || index.length === 0) {
+            console.log('Index.json is empty, generating file list from directory pattern...');
+            timestamps = generateTimestampList();
+          } else {
+            timestamps = index;
+          }
+          
+          slider.max = timestamps.length - 1;
+          console.log('Total timestamps:', timestamps.length);
+          
+          // Load all frame data
+          loadAllFrames();
+        })
+        .catch(err => {
+          console.error('Error loading index.json:', err);
+          console.log('Falling back to generated timestamp list...');
+          
+          // Generate timestamps based on file pattern
+          timestamps = generateTimestampList();
+          slider.max = timestamps.length - 1;
+          console.log('Using fallback timestamps:', timestamps.length, 'total');
+          
+          // Load all frame data
+          loadAllFrames();
         });
-      }
-
-      // Render a frame function - defined in main Promise scope
-      function loadFrame(i) {
-        if (!timestamps || timestamps.length === 0) {
-          console.error("Timestamps not loaded yet");
-          return;
-        }
         
-        const timestamp = timestamps[i];
-        currentFrame = i;
+      
+      
+        function loadAllFrames() {
+        console.log('Loading all frame data...');
+        console.log('Attempting to load', timestamps.length, 'potential files...');
         
-        console.log(`Loading frame ${i + 1}/${timestamps.length}: ${timestamp}`);
+        // Load frames with progress tracking
+        const promises = timestamps.map((timestamp, index) => 
+            fetch(`Frames/PM25_1/${timestamp}.json`)
+            .then(r => {
+              if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+              return r.json();
+            })
+            .then(data => {
+              allFrameData[timestamp] = data;
+              if ((index + 1) % 100 === 0 || index < 10) {
+                console.log(`✓ Loaded ${index + 1}/${timestamps.length}: ${timestamp}`);
+              }
+              return timestamp;
+            })
+            .catch(err => {
+              // Only log first few failures to avoid spam
+              if (index < 10) {
+                console.warn(`✗ Failed to load ${timestamp}.json:, err.message`);
+              }
+              return null;
+            })
+        );
         
-        // Update frame counter
-        const frameCounter = document.getElementById("frameCounter");
-        if (frameCounter) {
-          frameCounter.textContent = `${i + 1}/${timestamps.length}`;
+        Promise.all(promises).then(results => {
+            const loadedTimestamps = results.filter(r => r !== null);
+            const failedCount = results.filter(r => r === null).length;
+            
+            console.log(`Frame loading complete: ${loadedTimestamps.length} loaded, ${failedCount} failed`);
+            
+            if (loadedTimestamps.length === 0) {
+                alert('Error: No data files could be loaded. Please check that the JSON files exist in Frames/PM25_1/ and you are running from a web server.');
+                return;
+            }
+            
+            // Sort loaded timestamps to ensure proper chronological order
+            loadedTimestamps.sort();
+            
+            // Update timestamps to only include successfully loaded frames
+            timestamps = loadedTimestamps;
+            
+            // Update slider to match available data
+            slider.max = timestamps.length - 1;
+            slider.value = 0;
+            
+            console.log(`✅ Slider updated: 0 to ${timestamps.length - 1} (${timestamps.length} frames)`);
+            console.log('📅 Date range:', timestamps[0], 'to', timestamps[timestamps.length - 1]);
+            console.log('🔍 First 10 available timestamps:', timestamps.slice(0, 10));
+            
+            // Show a summary of what was loaded
+            const summary = analyzeLoadedData(timestamps);
+            console.log('📊 Data summary:', summary);
+            
+            // Start with the first available frame
+            loadFrame(0);
+            });
         }
       
-      fetch(`Frames/PM25_1/${timestamp}.json`)
-        .then(r => r.json())
-        .then(Zraw => {
-            const Z = categorizePM25(Zraw);
+        function analyzeLoadedData(timestamps) {
+            if (timestamps.length === 0) return 'No data loaded';
             
-            console.log("Updating 3D plot and Interactive Map for timestamp:", timestamp);
+            // Group by month to show coverage
+            const monthCounts = {};
+            timestamps.forEach(ts => {
+            const month = ts.substring(0, 8); // e.g., "2021-M05"
+            monthCounts[month] = (monthCounts[month] || 0) + 1;
+            });
             
-          // 3D plot
-          Plotly.newPlot("plot3d", [{
+            return {
+            totalFrames: timestamps.length,
+            monthlyBreakdown: monthCounts,
+            dateRange: `${timestamps[0]} to ${timestamps[timestamps.length - 1]}`
+            };
+        }
+
+        // Render a frame
+        function loadFrame(i) {
+        // Validate frame index
+        if (i < 0 || i >= timestamps.length) {
+            console.error('Frame index out of range:', i, 'Available range: 0 -', timestamps.length - 1);
+            return;
+        }
+        
+        console.log('Loading frame:', i, timestamps[i]);
+        const timestamp = timestamps[i];
+        currentFrame = i;
+        slider.value = i;
+        
+        if (allFrameData[timestamp]) {
+            const Z = allFrameData[timestamp];
+            console.log('Data shape:', Z.length, 'x', Z[0]?.length);
+            
+            // 3D plot
+            Plotly.newPlot("plot3d", [{
             type: 'surface',
             x: xmesh,
             y: ymesh,
@@ -361,325 +890,133 @@
             colorscale: customColor,
             cmin: 0, cmax: 6,
             showscale: false
-          }], {
-            title: {text: `3D Surface - ${timestamp}`},
+            }], {
+            title: {text: `3D - ${timestamp}`},
             scene: {
-              zaxis: {
-                title: { text: 'AQI Category' },
+                zaxis: {
+                title: { text: 'AQI' },
                 range: [0, 6]
-              },
-              xaxis: { title: { text: 'X Coordinate' } },
-              yaxis: { title: { text: 'Y Coordinate' } },
-              camera: {
+                },
+                xaxis: {},
+                yaxis: {},
+                camera: {
                 eye: { x: -1.6, y: -1.6, z: 0.8 }
-              }
+                }
             }
-          });
+            }, {
+            staticPlot: false,
+            displayModeBar: false,
+            scrollZoom: false,
+            doubleClick: false,
+            showTips: false,
+            displaylogo: false,
+            modeBarButtonsToRemove: ['pan3d', 'orbitRotation', 'tableRotation', 'resetCameraDefault3d', 'resetCameraLastSave3d'],
+            dragmode: false
+            }).then(() => {
+            console.log('3D plot rendered successfully');
+            // Add click event listener to 3D plot
+            document.getElementById('plot3d').on('plotly_click', function(data) {
+                if (data.points && data.points.length > 0) {
+                const point = data.points[0];
+                const xCoord = point.x;
+                const yCoord = point.y;
+                
+                // Find closest grid indices
+                const xIndex = X.reduce((closest, curr, idx) => 
+                    Math.abs(curr - xCoord) < Math.abs(X[closest] - xCoord) ? idx : closest, 0);
+                const yIndex = Y.reduce((closest, curr, idx) => 
+                    Math.abs(curr - yCoord) < Math.abs(Y[closest] - yCoord) ? idx : closest, 0);
+                
+                createTimeSeriesChart(xCoord, yCoord, xIndex, yIndex);
+                openModal();
+                }
+            });
+            }).catch(err => {
+            console.error('Error rendering 3D plot:', err);
+            });
 
-      // Common configuration for 2D views
-      const common2DConfig = {
-        type: 'heatmap',
-        z: Z,
-        x: X,
-        y: Y,
-        colorscale: customColor,
-        zmin: 0, zmax: 6
-      };
-
-      const commonLayout = {
-        xaxis: { title: '', fixedrange: true },
-        yaxis: { title: '', fixedrange: true },
-        dragmode: false
-      };
-
-          // Interactive map (top-right) - now with color scale
-          Plotly.newPlot("map2d", [{
-            ...common2DConfig,
+            // 2D plot
+            Plotly.newPlot("plot2d", [{
+            type: 'heatmap',
+            z: Z,
+            x: X,
+            y: Y,
+            colorscale: customColor,
+            zmin: 0, zmax: 6,
             showscale: true,
             colorbar: {
-              tickvals: [0, 1, 2, 3, 4, 5, 6],
-              ticktext: [
-                "0", "1 - Good (0-11)", "2 - Moderate (12-34)", "3 - Unhealthy for Sensitive (35-54)",
-                "4 - Unhealthy (55-150)", "5 - Very Unhealthy (150-249)", "6 - Hazardous (>250)"
-              ],
-              title: {text: "AQI Category"},
+                tickvals: [0, 1, 2, 3, 4, 5, 6],
+                ticktext: [
+                "0", "1 - Good (0-54)", "2 - Moderate (55-154)", "3 - Unhealthy for Sensitive (155-254)",
+                "4 - Unhealthy (255-354)", "5 - Very Unhealthy (354-424)", "6 - Hazardous (>425)"
+                ],
+                title: {text: "AQI Category (µg/m³)"},
             }
-          }], {
-            ...commonLayout,
-            title: { text: `Interactive Map - ${timestamp} (Click to Select Location)`}
-          });
-          
-          // Update static map only for the first frame (no animation)
-          if (i === 0) {
-            updateStaticMap(Z, timestamp, {x: X[selectedXIdx], y: Y[selectedYIdx]});
-          }
-        })
-        .catch(err => {
-          console.error("Error loading frame:", err);
-        });
-      }
+            }], {
+            title: { text: `2D Heatmap - ${timestamp}`},
+            xaxis: { title: ''},
+            yaxis: { title: ''}
+            }).then(() => {
+            console.log('2D plot rendered successfully');
+            // Add click event listener to 2D plot as well
+            document.getElementById('plot2d').on('plotly_click', function(data) {
+                if (data.points && data.points.length > 0) {
+                const point = data.points[0];
+                const xIndex = point.pointNumber[1];
+                const yIndex = point.pointNumber[0];
+                const xCoord = X[xIndex];
+                const yCoord = Y[yIndex];
+                
+                createTimeSeriesChart(xCoord, yCoord, xIndex, yIndex);
+                openModal();
+                }
+            });
+            }).catch(err => {
+            console.error('Error rendering 2D plot:', err);
+            });
+        } else {
+            console.error('No data available for timestamp:', timestamp);
+            console.log('This should not happen as timestamps array was filtered');
+            console.log('Available timestamps:', Object.keys(allFrameData).slice(0, 5));
+        }
+        }
 
-      // Initialize empty line plot
-      Plotly.newPlot("lineplot", [{
-        type: 'scatter',
-        x: [],
-        y: []
-      }], {
-        title: { 
-          text: 'Time Series Plot - Click on Static Coordinate Selector Map to Load Data',
-          font: { size: 14 }
-        },
-        xaxis: { title: 'Timestamp' },
-        yaxis: { title: 'PM2.5 Value (µg/m³)' },
-        annotations: [{
-          text: 'Click on any location in the Static Coordinate Selector Map <br>to show PM2.5 time series data for that point',
-          showarrow: false,
-          font: { size: 14, color: '#666' },
-          xref: 'paper',
-          yref: 'paper',
-          x: 0.5,
-          y: 0.5
-        }]
-      });
-      
-      // Initialize static coordinate selection map (bottom left)
-      Plotly.newPlot("staticmap", [{
-        type: 'heatmap',
-        z: [[0]], // Will be updated with actual data
-        x: [0],
-        y: [0],
-        colorscale: customColor,
-        zmin: 0, zmax: 6,
-        showscale: false
-      }], {
-        title: { 
-          text: 'Static Coordinate Selector',
-          font: { size: 14 }
-        },
-        xaxis: { title: 'X Coordinate', fixedrange: true },
-        yaxis: { title: 'Y Coordinate', fixedrange: true },
-        dragmode: false,
-        annotations: [{
-          text: 'Click to select coordinates<br>No animation - shows current frame data',
-          showarrow: false,
-          font: { size: 12, color: '#666' },
-          xref: 'paper',
-          yref: 'paper',
-          x: 0.5,
-          y: 0.5
-        }]
-      });
-      
-      // Load all frame file names and initialize
-      console.log("Starting to fetch index.json...");
-      fetch('Frames/PM25_1/index.json')
-        .then(r => {
-          if (!r.ok) {
-            throw new Error(`HTTP error! status: ${r.status}`);
-          }
-          return r.json();
-        })
-        .then(index => {
-          timestamps = index;
-          slider.max = timestamps.length - 1;
-          console.log("Loaded timestamps:", timestamps.length, "frames");
-          console.log("Map element ready for click events");
 
-          // Determine default selected location based on predefined coordinates
-          selectedXIdx = findNearestIndex(DEFAULT_X, X);
-          selectedYIdx = findNearestIndex(DEFAULT_Y, Y);
-          console.log("Default location indices:", selectedXIdx, selectedYIdx, 
-                      "coordinates:", X[selectedXIdx], Y[selectedYIdx]);
-
-          // Load first frame (2D & 3D maps) and highlight default location
-          loadFrame(0);
-
-          // Plot default location time-series
-          loadLineChart(selectedXIdx, selectedYIdx);
-
-          // Set up all control event handlers AFTER timestamps are loaded
-          slider.addEventListener("input", () => {
-            const frameIndex = parseInt(slider.value);
-            console.log("Slider changed to frame:", frameIndex);
-            loadFrame(frameIndex);
-            currentFrame = frameIndex;
-          });
-
-          speedBtn.addEventListener("click", () => {
-            isFast = !isFast;
-            speed = isFast ? 2 : 5;  // 2x speed is 250ms
-            speedBtn.innerText = `Speed: ${isFast ? "2x" : "1x"}`;
-            console.log("Speed changed to:", isFast ? "2x" : "1x");
-
-            // Restart animation with new speed if it's running
-            if (intervalId !== null) {
-              clearInterval(intervalId);
-              intervalId = setInterval(() => {
-                currentFrame = (currentFrame + 1) % timestamps.length;
-                loadFrame(currentFrame);
-                slider.value = currentFrame; // Keep slider in sync
-              }, speed);
-            }
-          });
-
-          startBtn.addEventListener("click", () => {
-            console.log("Start button clicked, timestamps length:", timestamps.length);
-            if (intervalId === null) {
-              intervalId = setInterval(() => {
-                currentFrame = (currentFrame + 1) % timestamps.length;
-                console.log("Animation frame:", currentFrame);
-                loadFrame(currentFrame);
-                slider.value = currentFrame; // Update slider position
-              }, speed);
-            }
-          });
-
-          stopBtn.addEventListener("click", () => {
-            console.log("Stop button clicked");
-            clearInterval(intervalId);
-            intervalId = null;
-          });
-          // Set up click event handler for the map (after timestamps are loaded)
-          console.log("Registering click event handler for map2d");
-          const mapElement = document.getElementById('map2d');
-          console.log("Map element found:", mapElement);
-          
-          if (!mapElement) {
-            console.error("ERROR: map2d element not found!");
-            return;
-          }
-          
-          mapElement.on('plotly_click', function(data) {
-              console.log("Map clicked! Data:", data);
-              if (data.points.length > 0) {
-                  const pt = data.points[0];
-                  const xval = pt.x;
-                  const yval = pt.y;
-
-                  const findNearestIndex = (val, arr) => {
-                      let nearest = 0;
-                      let minDiff = Math.abs(val - arr[0]);
-                      for (let i = 1; i < arr.length; i++) {
-                          const diff = Math.abs(val - arr[i]);
-                          if (diff < minDiff) {
-                              minDiff = diff;
-                              nearest = i;
-                          }
-                      }
-                      return nearest;
-                  };
-
-                  selectedXIdx = findNearestIndex(xval, X);
-                  selectedYIdx = findNearestIndex(yval, Y);
-                  console.log("Selected location from interactive map:", X[selectedXIdx], Y[selectedYIdx]);
-
-                  if (selectedXIdx !== -1 && selectedYIdx !== -1) {
-                      loadLineChart(selectedXIdx, selectedYIdx);
-                  } else {
-                      console.error("Invalid coordinates selected from interactive map:", xval, yval);
-                  }
-              }
-          });
-
-          // Set up click event handler for the static map (coordinate selector)
-          console.log("Registering click event handler for staticmap");
-          const staticMapElement = document.getElementById('staticmap');
-          console.log("Static map element found:", staticMapElement);
-          
-          if (!staticMapElement) {
-            console.error("ERROR: staticmap element not found!");
-            return;
-          }
-          
-          staticMapElement.on('plotly_click', function(data) {
-              console.log("Static map clicked! Data:", data);
-              if (!data || !data.points || data.points.length === 0) {
-                  console.error("No valid click data received");
-                  return;
-              }
-
-              const pt = data.points[0];
-              if (!pt || pt.x === undefined || pt.y === undefined) {
-                  console.error("Invalid point data:", pt);
-                  return;
-              }
-
-              const xval = pt.x;
-              const yval = pt.y;
-
-              // Find nearest valid indices since exact matches might fail due to floating point precision
-              const findNearestIndex = (val, arr) => {
-                  let nearest = 0;
-                  let minDiff = Math.abs(val - arr[0]);
-                  for (let i = 1; i < arr.length; i++) {
-                      const diff = Math.abs(val - arr[i]);
-                      if (diff < minDiff) {
-                          minDiff = diff;
-                          nearest = i;
-                      }
-                  }
-                  return nearest;
-              };
-
-              selectedXIdx = findNearestIndex(xval, X);
-              selectedYIdx = findNearestIndex(yval, Y);
-              console.log("Selected location from static map:", X[selectedXIdx], Y[selectedYIdx]);
-
-              try {
-                  loadLineChart(selectedXIdx, selectedYIdx);
-                  
-                  // Update static map title to show selected coordinates
-                  Plotly.relayout("staticmap", {
-                      title: { 
-                          text: `Static Coordinate Selector - Selected Point: (${X[selectedXIdx].toFixed(1)}, ${Y[selectedYIdx].toFixed(1)})`,
-                          font: { size: 14 }
-                      }
-                  });
-
-                  // Update or add red marker for selected point
-                  const staticMapDiv = document.getElementById('staticmap');
-                  if (staticMapDiv && staticMapDiv.data && staticMapDiv.data.length > 1 && staticMapDiv.data[1].type === 'scatter') {
-                      // Scatter trace exists – just move it
-                      Plotly.restyle('staticmap', {
-                          x: [[X[selectedXIdx]]],
-                          y: [[Y[selectedYIdx]]]
-                      }, [1]);
-                  } else {
-                      // Add new scatter trace for highlight
-                      Plotly.addTraces('staticmap', {
-                          type: 'scatter',
-                          x: [X[selectedXIdx]],
-                          y: [Y[selectedYIdx]],
-                          mode: 'markers',
-                          marker: { color: 'red', size: 10, symbol: 'circle' },
-                          name: 'Selected Point',
-                          hoverinfo: 'x+y'
-                      });
-                  }
-              } catch (err) {
-                  console.error("Error loading line chart:", err);
-                  // Show error in the line plot area
-                  Plotly.newPlot("lineplot", [{
-                      type: 'scatter',
-                      x: [],
-                      y: []
-                  }], {
-                      title: { 
-                          text: 'Error loading data. Please try another location.',
-                          font: { size: 14, color: 'red' }
-                      }
-                  });
-              }
-          });
-        })
-        .catch(err => {
-          console.error("Error loading timestamps:", err);
-        });
-    })
-    .catch(err => {
-      console.error("Error loading frame:", err);
+    slider.addEventListener("input", () => {
+    loadFrame(parseInt(slider.value));
     });
 
+    speedBtn.addEventListener("click", () => {
+    isFast = !isFast;
+    speed = isFast ? 250 : 500;  // 2x speed is 250ms
+    speedBtn.innerText = `Speed: ${isFast ? "2x" : "1x"}`;
+
+    // Restart animation with new speed if it's running
+    if (intervalId !== null) {
+        clearInterval(intervalId);
+        intervalId = setInterval(() => {
+        currentFrame = (currentFrame + 1) % timestamps.length;
+        loadFrame(currentFrame);
+        }, speed);
+    }
+    });
+
+
+    startBtn.addEventListener("click", () => {
+      if (intervalId === null) {
+      intervalId = setInterval(() => {
+          currentFrame = (currentFrame + 1) % timestamps.length;
+          loadFrame(currentFrame);
+      }, speed);}
+    });
+
+    stopBtn.addEventListener("click", () => {
+        clearInterval(intervalId);
+        intervalId = null;
+    });
+
+    });
+    
   </script>
 </body>
 </html>
