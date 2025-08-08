@@ -332,84 +332,11 @@
         }
     });
 
-    // Export chart functionality
-    function exportChart() {
-    const options = {
-        format: 'png',
-        width: isFullscreen ? 1920 : 800,
-        height: isFullscreen ? 1080 : 600,
-        filename: `PM2.5_AQI_TimeSeries_${Date.now()}`
-    };
-    
-    Plotly.downloadImage('lineChart', options)
-        .then(() => {
-            console.log('Chart exported successfully');
-        })
-        .catch(err => {
-            console.error('Error exporting chart:', err);
-            alert('Export failed. Please try again.');
-        });
-    }
-
     // Chart optimization variables
     let originalTimeSeriesData = [];
     let originalTimeLabels = [];
     let currentDisplayData = [];
     let currentDisplayLabels = [];
-    let isAggregated = true;
-
-    // Data aggregation functions
-    function aggregateData(data, labels, mode) {
-        if (mode === 'hourly') {
-            return aggregateByTime(data, labels, 'hour');
-        } else if (mode === 'daily') {
-            return aggregateByTime(data, labels, 'day');
-        } else {
-        // Sample every nth point
-        const step = parseInt(mode);
-        const aggregatedData = [];
-        const aggregatedLabels = [];
-        
-        for (let i = 0; i < data.length; i += step) {
-            aggregatedData.push(data[i]);
-            aggregatedLabels.push(labels[i]);
-        }
-        
-        return { data: aggregatedData, labels: aggregatedLabels };
-        }
-    }
-
-    function aggregateByTime(data, labels, period) {
-        const grouped = {};
-        
-        for (let i = 0; i < data.length; i++) {
-            let key;
-            if (period === 'hour') {
-                // Group by hour (assuming labels are timestamps)
-                key = labels[i].substring(0, 13); // YYYY-MM-DD_HH
-            } else {
-                // Group by day
-                key = labels[i].substring(0, 10); // YYYY-MM-DD
-            }
-            
-            if (!grouped[key]) {
-                grouped[key] = { values: [], count: 0 };
-            }
-            grouped[key].values.push(data[i]);
-            grouped[key].count++;
-        }
-        
-        const aggregatedData = [];
-        const aggregatedLabels = [];
-        
-        Object.keys(grouped).forEach(key => {
-            const avg = grouped[key].values.reduce((a, b) => a + b, 0) / grouped[key].count;
-            aggregatedData.push(avg);
-            aggregatedLabels.push(key);
-        });
-        
-        return { data: aggregatedData, labels: aggregatedLabels };
-    }
 
     function updateChart() {
         const trace = {
@@ -462,11 +389,11 @@
         // Add background shapes for AQI levels
         if (currentDisplayData.length > 0 && currentDisplayLabels.length > 0) {
             layout.shapes = [
-                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 0, y1: 11, fillcolor: '#00A651', opacity: 0.1, line: {width: 0}},
-                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 12, y1: 34, fillcolor: '#FFC627', opacity: 0.1, line: {width: 0}},
-                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 35, y1: 54, fillcolor: '#F58220', opacity: 0.1, line: {width: 0}},
-                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 55, y1: 149, fillcolor: '#ED1C24', opacity: 0.1, line: {width: 0}},
-                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 150, y1: 249, fillcolor: '#662D91', opacity: 0.1, line: {width: 0}},
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 0, y1: 12, fillcolor: '#00A651', opacity: 0.1, line: {width: 0}},
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 12, y1: 35, fillcolor: '#FFC627', opacity: 0.1, line: {width: 0}},
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 35, y1: 55, fillcolor: '#F58220', opacity: 0.1, line: {width: 0}},
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 55, y1: 150, fillcolor: '#ED1C24', opacity: 0.1, line: {width: 0}},
+                {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 150, y1: 250, fillcolor: '#662D91', opacity: 0.1, line: {width: 0}},
                 {type: 'rect', x0: currentDisplayLabels[0], x1: currentDisplayLabels[currentDisplayLabels.length-1], y0: 250, y1: 700, fillcolor: '#4A0A38', opacity: 0.1, line: {width: 0}}
             ];
         }
@@ -499,55 +426,74 @@
 
     // Function to get AQI category name
     function getAQICategory(value) {
-        if (value <= 1) return "Good";
-        else if (value <= 2) return "Moderate";
-        else if (value <= 3) return "Unhealthy for Sensitive";
-        else if (value <= 4) return "Unhealthy";
-        else if (value <= 5) return "Very Unhealthy";
+        if (value <= 11) return "Good";
+        else if (value <= 34) return "Moderate";
+        else if (value <= 54) return "Unhealthy for Sensitive";
+        else if (value <= 149) return "Unhealthy";
+        else if (value <= 249) return "Very Unhealthy";
         else return "Hazardous";
     }
 
     // Function to create time series chart for a specific coordinate
-    function createTimeSeriesChart(xCoord, yCoord, xIndex, yIndex) {
-    const timeSeriesData = [];
-    const timeLabels = [];
-    
-    timestamps.forEach(timestamp => {
-        if (allFrameData[timestamp]) {
-            const frameData = allFrameData[timestamp];
-            if (frameData && frameData[yIndex] && frameData[yIndex][xIndex] !== undefined) {
-                const value = frameData[yIndex][xIndex];
+    async function createTimeSeriesChart(xCoord, yCoord, xIndex, yIndex) {
+        const timeSeriesData = [];
+        const timeLabels = [];
+
+        const sliceTimestamps = timestamps.slice(0, currentFrame + 1);
+
+        const loadFrameValue = async (timestamp) => {
+            try {
+                // Load from cache if available
+                let frameData;
+                if (allFrameData[timestamp]) {
+                    frameData = allFrameData[timestamp];
+                } else {
+                    const res = await fetch(`Frames/PM25_1/${timestamp}.json`);
+                    if (!res.ok) throw new Error(`Failed to load frame ${timestamp}`);
+                    frameData = await res.json();
+                    allFrameData[timestamp] = frameData; // Cache it
+                }
+
+                const value = frameData[yIndex]?.[xIndex];
                 if (value !== null && !isNaN(value)) {
                     timeSeriesData.push(value);
                     timeLabels.push(timestamp);
                 }
+            } catch (err) {
+                console.warn(`Skipping frame ${timestamp} due to error:`, err.message);
             }
-        }
-    });
+        };
 
-    if (timeSeriesData.length === 0) {
-        alert('No data available for this location.');
-        return;
+        // Load all values sequentially (you can optimize to parallel if needed)
+        for (const timestamp of sliceTimestamps) {
+            await loadFrameValue(timestamp);
+        }
+
+        if (timeSeriesData.length === 0) {
+            alert('No data available for this location.');
+            return;
+        }
+
+        const minAQI = Math.min(...timeSeriesData);
+        const maxAQI = Math.max(...timeSeriesData);
+        const avgAQI = timeSeriesData.reduce((a, b) => a + b, 0) / timeSeriesData.length;
+
+        document.getElementById('coordinateInfo').innerHTML = `
+            <strong>Location:</strong> Longitude ${xCoord.toFixed(4)}, Latitude ${yCoord.toFixed(4)}<br>
+            <strong>Current AQI:</strong> ${timeSeriesData[timeSeriesData.length - 1]?.toFixed(2) || 'N/A'} (${getAQICategory(timeSeriesData[timeSeriesData.length - 1] || 0)})<br>
+            <strong>Data Points:</strong> ${timeSeriesData.length}<br>
+            <strong>AQI Range:</strong> ${minAQI.toFixed(2)} - ${maxAQI.toFixed(2)} (avg: ${avgAQI.toFixed(2)})
+        `;
+
+        originalTimeSeriesData = [...timeSeriesData];
+        originalTimeLabels = [...timeLabels];
+        currentDisplayData = [...timeSeriesData];
+        currentDisplayLabels = [...timeLabels];
+
+        updateChart();
     }
 
-    const minAQI = Math.min(...timeSeriesData);
-    const maxAQI = Math.max(...timeSeriesData);
-    const avgAQI = timeSeriesData.reduce((a, b) => a + b, 0) / timeSeriesData.length;
 
-    document.getElementById('coordinateInfo').innerHTML = `
-        <strong>Location:</strong> Longitude ${xCoord.toFixed(4)}, Latitude ${yCoord.toFixed(4)}<br>
-        <strong>Current AQI:</strong> ${timeSeriesData[currentFrame]?.toFixed(2) || 'N/A'} (${getAQICategory(timeSeriesData[currentFrame] || 0)})<br>
-        <strong>Data Points:</strong> ${timeSeriesData.length}<br>
-        <strong>AQI Range:</strong> ${minAQI.toFixed(2)} - ${maxAQI.toFixed(2)} (avg: ${avgAQI.toFixed(2)})
-    `;
-
-    originalTimeSeriesData = [...timeSeriesData];
-    originalTimeLabels = [...timeLabels];
-    currentDisplayData = [...timeSeriesData];
-    currentDisplayLabels = [...timeLabels];
-
-    updateChart();
-}
 
     // Load coordinate grids
     Promise.all([
@@ -626,7 +572,7 @@
             console.log('Total timestamps:', timestamps.length);
             
             // Load all frame data
-            loadAllFrames();
+            loadFrame(0);
             })
             .catch(err => {
             console.error('Error loading index.json:', err);
@@ -638,218 +584,114 @@
             console.log('Using fallback timestamps:', timestamps.length, 'total');
             
             // Load all frame data
-            loadAllFrames();
+            loadFrame(0);
         });
-        
-      
-      
-        function loadAllFrames() {
-        console.log('Loading all frame data...');
-        console.log('Attempting to load', timestamps.length, 'potential files...');
-        
-        // Load frames with progress tracking
-        const promises = timestamps.map((timestamp, index) => 
-            fetch(`Frames/PM25_1/${timestamp}.json`)
-            .then(r => {
-              if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-              return r.json();
-            })
-            .then(data => {
-              allFrameData[timestamp] = data;
-              if ((index + 1) % 100 === 0 || index < 10) {
-                console.log(`✓ Loaded ${index + 1}/${timestamps.length}: ${timestamp}`);
-              }
-              return timestamp;
-            })
-            .catch(err => {
-              // Only log first few failures to avoid spam
-              if (index < 10) {
-                console.warn(`✗ Failed to load ${timestamp}.json:, err.message`);
-              }
-              return null;
-            })
-        );
-        
-        Promise.all(promises).then(results => {
-            const loadedTimestamps = results.filter(r => r !== null);
-            const failedCount = results.filter(r => r === null).length;
-            
-            console.log(`Frame loading complete: ${loadedTimestamps.length} loaded, ${failedCount} failed`);
-            
-            if (loadedTimestamps.length === 0) {
-                alert('Error: No data files could be loaded. Please check that the JSON files exist in Frames/PM25_1/ and you are running from a web server.');
+
+        function loadFrame(i) {
+            if (i < 0 || i >= timestamps.length) {
+                console.error('Frame index out of range:', i);
                 return;
             }
-            
-            // Sort loaded timestamps to ensure proper chronological order
-            loadedTimestamps.sort();
-            
-            // Update timestamps to only include successfully loaded frames
-            timestamps = loadedTimestamps;
-            
-            // Update slider to match available data
-            slider.max = timestamps.length - 1;
-            slider.value = 0;
-            
-            console.log(`✅ Slider updated: 0 to ${timestamps.length - 1} (${timestamps.length} frames)`);
-            console.log('📅 Date range:', timestamps[0], 'to', timestamps[timestamps.length - 1]);
-            console.log('🔍 First 10 available timestamps:', timestamps.slice(0, 10));
-            
-            // Show a summary of what was loaded
-            const summary = analyzeLoadedData(timestamps);
-            console.log('📊 Data summary:', summary);
-            
-            // Start with the first available frame
-            loadFrame(0);
-            });
-        }
-      
-        function analyzeLoadedData(timestamps) {
-            if (timestamps.length === 0) return 'No data loaded';
-            
-            // Group by month to show coverage
-            const monthCounts = {};
-            timestamps.forEach(ts => {
-            const month = ts.substring(0, 8); // e.g., "2021-M05"
-            monthCounts[month] = (monthCounts[month] || 0) + 1;
-            });
-            
-            return {
-            totalFrames: timestamps.length,
-            monthlyBreakdown: monthCounts,
-            dateRange: `${timestamps[0]} to ${timestamps[timestamps.length - 1]}`
-            };
+
+            const timestamp = timestamps[i];
+            currentFrame = i;
+            slider.value = i;
+
+            // Check if already cached
+            if (allFrameData[timestamp]) {
+                renderFrame(timestamps[i], allFrameData[timestamp]);
+            } else {
+                fetch(`Frames/PM25_1/${timestamp}.json`)
+                    .then(r => {
+                        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                        return r.json();
+                    })
+                    .then(data => {
+                        allFrameData[timestamp] = data; // optional caching
+                        renderFrame(timestamp, data);
+                    })
+                    .catch(err => {
+                        console.error(`Failed to load frame: ${timestamp}`, err);
+                        alert(`Failed to load frame: ${timestamp}`);
+                    });
+            }
         }
 
-        // Render a frame
-        function loadFrame(i) {
-        // Validate frame index
-        if (i < 0 || i >= timestamps.length) {
-            console.error('Frame index out of range:', i, 'Available range: 0 -', timestamps.length - 1);
-            return;
-        }
-        
-        console.log('Loading frame:', i, timestamps[i]);
-        const timestamp = timestamps[i];
-        currentFrame = i;
-        slider.value = i;
-        
-        if (allFrameData[timestamp]) {
-            const rawZ = allFrameData[timestamp];
+        function renderFrame(timestamp, rawZ) {
             const Z = categorizePM25(rawZ);
-            console.log('Data shape:', Z.length, 'x', Z[0]?.length);
-            
+            const i = timestamps.indexOf(timestamp);
+
             // 3D plot
             Plotly.newPlot("plot3d", [{
-            type: 'surface',
-            x: xmesh,
-            y: ymesh,
-            z: Z,
-            colorscale: customColor,
-            cmin: 0, cmax: 6,
-            showscale: false
+                type: 'surface',
+                x: xmesh,
+                y: ymesh,
+                z: Z,
+                colorscale: customColor,
+                cmin: 0, cmax: 6,
+                showscale: false
             }], {
-            title: {text: `3D - ${timestamp}`},
-            scene: {
-                zaxis: {
-                title: { text: 'AQI' },
-                range: [0, 6]
-                },
-                xaxis: {},
-                yaxis: {},
-                camera: {
-                eye: { x: -1.6, y: -1.6, z: 0.8 }
+                title: { text: `3D - ${timestamp}` },
+                scene: {
+                    zaxis: { title: { text: 'AQI' }, range: [0, 6] },
+                    xaxis: {}, yaxis: {},
+                    camera: { eye: { x: -1.6, y: -1.6, z: 0.8 } }
                 }
-            }
             }, {
-            staticPlot: false,
-            displayModeBar: false,
-            scrollZoom: false,
-            doubleClick: false,
-            showTips: false,
-            displaylogo: false,
-            modeBarButtonsToRemove: ['pan3d', 'orbitRotation', 'tableRotation', 'resetCameraDefault3d', 'resetCameraLastSave3d'],
-            dragmode: false
+                staticPlot: false,
+                displayModeBar: false
             }).then(() => {
-            console.log('3D plot rendered successfully');
-            // Add click event listener to 3D plot
-            document.getElementById('plot3d').on('plotly_click', function(data) {
-                if (data.points && data.points.length > 0) {
-                const point = data.points[0];
-                const xCoord = point.x;
-                const yCoord = point.y;
-                
-                // Find closest grid indices
-                const xIndex = X.reduce((closest, curr, idx) => 
-                    Math.abs(curr - xCoord) < Math.abs(X[closest] - xCoord) ? idx : closest, 0);
-                const yIndex = Y.reduce((closest, curr, idx) => 
-                    Math.abs(curr - yCoord) < Math.abs(Y[closest] - yCoord) ? idx : closest, 0);
-                
-                createTimeSeriesChart(xCoord, yCoord, xIndex, yIndex);
-                openModal();
-                }
-            });
-            }).catch(err => {
-            console.error('Error rendering 3D plot:', err);
+                document.getElementById('plot3d').on('plotly_click', function(data) {
+                    if (data.points && data.points.length > 0) {
+                        const point = data.points[0];
+                        const xCoord = point.x;
+                        const yCoord = point.y;
+                        const xIndex = X.reduce((closest, curr, idx) =>
+                            Math.abs(curr - xCoord) < Math.abs(X[closest] - xCoord) ? idx : closest, 0);
+                        const yIndex = Y.reduce((closest, curr, idx) =>
+                            Math.abs(curr - yCoord) < Math.abs(Y[closest] - yCoord) ? idx : closest, 0);
+                        createTimeSeriesChart(xCoord, yCoord, xIndex, yIndex);
+                        openModal();
+                    }
+                });
             });
 
             // 2D plot
             Plotly.newPlot("plot2d", [{
-            type: 'heatmap',
-            z: Z,
-            x: X,
-            y: Y,
-            colorscale: customColor,
-            zmin: 0, zmax: 6,
-            showscale: true,
-            colorbar: {
-                tickvals: [0, 1, 2, 3, 4, 5, 6],
-                ticktext: [
-                "0", "1 - Good (0 - 11)", "2 - Moderate (12-34)", "3 - Unhealthy for Sensitive (35-54)",
-                "4 - Unhealthy (55-149)", "5 - Very Unhealthy (150-249)", "6 - Hazardous (>250)"
-                ],
-                title: {text: "AQI Category (µg/m³)"},
-            }
-            }, 
-            {
-            staticPlot: false,
-            displayModeBar: false,
-            scrollZoom: false,
-            doubleClick: false,
-            showTips: false,
-            displaylogo: false,
-            dragmode: false
-            }], {
-            title: { text: `2D Heatmap - ${timestamp}`},
-            xaxis: { title: ''},
-            yaxis: { title: ''}
-            }).then(() => {
-            console.log('2D plot rendered successfully');
-
-            // Add click event listener to 2D plot as well
-            document.getElementById('plot2d').on('plotly_click', function(data) {
-                if (data.points && data.points.length > 0) {
-                const point = data.points[0];
-                const xIndex = point.pointNumber[1];
-                const yIndex = point.pointNumber[0];
-                const xCoord = X[xIndex];
-                const yCoord = Y[yIndex];
-                
-                createTimeSeriesChart(xCoord, yCoord, xIndex, yIndex);
-                openModal();
+                type: 'heatmap',
+                z: Z,
+                x: X,
+                y: Y,
+                colorscale: customColor,
+                zmin: 0, zmax: 6,
+                showscale: true,
+                colorbar: {
+                    tickvals: [0, 1, 2, 3, 4, 5, 6],
+                    ticktext: [
+                        "0", "1 - Good (0-11)", "2 - Moderate (12–34)",
+                        "3 - Unhealthy for Sensitive (35–54)", "4 - Unhealthy (55–149)",
+                        "5 - Very Unhealthy (150–249)", "6 - Hazardous (250+)"
+                    ],
+                    title: { text: "AQI Category (µg/m³)" }
                 }
+            }], {
+                title: { text: `2D Heatmap - ${timestamp}` },
+                xaxis: { title: '' },
+                yaxis: { title: '' }
+            }).then(() => {
+                document.getElementById('plot2d').on('plotly_click', function(data) {
+                    if (data.points && data.points.length > 0) {
+                        const point = data.points[0];
+                        const xIndex = point.pointNumber[1];
+                        const yIndex = point.pointNumber[0];
+                        const xCoord = X[xIndex];
+                        const yCoord = Y[yIndex];
+                        createTimeSeriesChart(xCoord, yCoord, xIndex, yIndex);
+                        openModal();
+                    }
+                });
             });
-            }).catch(err => {
-            console.error('Error rendering 2D plot:', err);
-            });
-        } else {
-            console.error('No data available for timestamp:', timestamp);
-            console.log('This should not happen as timestamps array was filtered');
-            console.log('Available timestamps:', Object.keys(allFrameData).slice(0, 5));
         }
-        }
-
-
         slider.addEventListener("input", () => {
         loadFrame(parseInt(slider.value));
     });
