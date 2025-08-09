@@ -1,48 +1,487 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>My Website</title>
+  <title>AQI 3D/2D Viewer</title>
+  <script src="https://cdn.plot.ly/plotly-3.0.3.min.js" charset="utf-8"></script>
   <style>
-    /* Navbar Style */
-    nav {
-      background-color: #333;
-      padding: 0.5em;
-    }
-
-    nav ul {
-      list-style: none;
-      display: flex;
-      gap: 20px;
-    }
-
-    nav ul li a {
-      color: white;
-      text-decoration: none;
-      font-weight: bold;
-    }
-
-    nav ul li a:hover {
-      text-decoration: underline;
-    }
+    #controls { display:flex; align-items:center; gap:8px; padding:5px 10px; margin:0; background:#f2efef; }
+    nav { background:#333; padding:1em; } nav ul{list-style:none; display:flex; gap:20px;} nav ul li a{color:#fff; text-decoration:none; font-weight:bold;}
+    nav ul li a:hover{text-decoration:underline;}
+    .modal{display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.6); backdrop-filter:blur(3px);}
+    .modal-content{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); margin:5% auto; padding:0; border:none; border-radius:15px; width:80%; max-width:900px; height:70%; box-shadow:0 20px 40px rgba(0,0,0,.3); animation:slideIn .3s ease-out; position:relative; overflow:hidden;}
+    @keyframes slideIn{from{transform:translateY(-50px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+    .modal-header{background:rgba(255,255,255,.95); padding:15px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;}
+    .modal-title{margin:0; color:#333; font-size:1.5em; font-weight:600;}
+    .close{color:#999; font-size:28px; font-weight:bold; cursor:pointer; background:none; border:none;}
+    .close:hover{color:#555;}
+    .modal-body{background:rgba(255,255,255,.98); height:calc(100% - 60px); padding:15px; display:flex; flex-direction:column;}
+    #lineChart{width:100%; flex:1; min-height:400px;}
+    .coordinate-info{background:rgba(102,126,234,.1); padding:8px 12px; border-radius:8px; margin-bottom:10px; border-left:4px solid #667eea;}
+    .fullscreen-btn{background:linear-gradient(135deg,#ff6b6b,#ee5a52); color:#fff; border:none; padding:4px 12px; border-radius:15px; cursor:pointer; font-size:11px; font-weight:600;}
+    .modal-content.fullscreen{margin:0; width:100vw; height:100vh; max-width:none; border-radius:0; position:fixed; top:0; left:0; z-index:1001;}
+    .modal-content.fullscreen .modal-body{height:calc(100vh - 60px); padding:20px;}
+    .modal-content.fullscreen #lineChart{min-height:calc(100vh - 200px);}
+    .select{padding:4px 6px; border:1px solid #ddd; border-radius:6px; font-size:12px; background:#fff;}
   </style>
 </head>
 <body>
-
-  <!-- Navigation Bar -->
-  <nav>
-    <ul>
-      <li><a href="pm25.html">PM2.5</a></li>
-      <li><a href="pm10.html">PM10</a></li>
-      <li><a href="CO.html">CO</a></li>
-    </ul>
-  </nav>
-
-  <!-- Page Content -->
-  <div class="content">
-    <h1>Welcome to My Website</h1>
-    <p>This is the homepage content.</p>
+  <h2 id="pageTitle">AQI Viewer — <span id="pollutantTitle">PM2.5</span></h2>
+  <div style="display:flex;">
+    <div id="plot3d" style="width:50%; height:630px;"></div>
+    <div id="plot2d" style="width:50%; height:630px;"></div>
   </div>
 
+  <div id="controls">
+    <label>Pollutant:
+      <select id="pollutantSelect" class="select">
+        <option value="pm25">PM2.5</option>
+        <option value="pm10">PM10</option>
+        <option value="co">CO</option>
+        <option value="no2">NO₂</option>
+        <option value="o3">O₃</option>
+        <option value="so2">SO₂</option>
+      </select>
+    </label>
+    <button id="startBtn">Start</button>
+    <button id="stopBtn">Stop</button>
+    <button id="speedBtn">Speed: 1x</button>
+    <input type="range" id="slider" min="0" max="0" value="0" step="1">
+  </div>
+
+  <!-- Modal for Line Chart -->
+  <div id="chartModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">AQI Time Series</h3>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button class="fullscreen-btn" onclick="toggleFullscreen()" id="fullscreenBtn">⛶ Fullscreen</button>
+          <button class="close" onclick="closeModal()">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="coordinate-info" id="coordinateInfo"></div>
+        <div id="lineChart"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/** =========================
+ * Modular pollutant config
+ * ========================= */
+const POLLUTANTS = {
+  pm25: {
+    name: "PM2.5",
+    key: "PM25",                // folder under Frames/
+    unit: "µg/m³",
+    // US-style breakpoints (edit to match your scheme)
+    breakpoints: [0, 12, 35.4, 55.4, 150.4, 250.4, 500.4],
+  },
+  pm10: {
+    name: "PM10",
+    key: "PM10",
+    unit: "µg/m³",
+    breakpoints: [0, 54, 154, 254, 354, 424, 604],
+  },
+  co: {
+    name: "CO",
+    key: "CO",
+    unit: "ppm",
+    breakpoints: [0, 4.4, 9.4, 12.4, 15.4, 30.4, 50.4],
+  },
+  no2: {
+    name: "NO₂",
+    key: "NO2",
+    unit: "ppb",
+    breakpoints: [0, 53, 100, 360, 649, 1249, 2049],
+  },
+  o3: {
+    name: "O₃",
+    key: "O3",
+    unit: "ppm",
+    breakpoints: [0, 0.054, 0.070, 0.085, 0.105, 0.200, 0.400],
+  },
+  so2: {
+    name: "SO₂",
+    key: "SO2",
+    unit: "ppb",
+    breakpoints: [0, 35, 75, 185, 304, 604, 1000],
+  }
+};
+
+// Shared colors (category 0–6)
+const customColor = [
+  [0, '#ffffff'],    // No Data
+  [1/6, '#00A651'],  // Good
+  [2/6, '#FFC627'],  // Moderate
+  [3/6, '#F58220'],  // Unhealthy for Sensitive
+  [4/6, '#ED1C24'],  // Unhealthy
+  [5/6, '#662D91'],  // Very Unhealthy
+  [1, '#4A0A38']     // Hazardous
+];
+
+let current = POLLUTANTS.pm25;
+let X, Y, timestamps = [];
+let allFrameData = {};
+let currentFrame = 0;
+let intervalId = null;
+let speed = 500; // ms
+let isFast = false;
+
+// Chart state
+let originalTimeSeriesData = [];
+let originalTimeLabels = [];
+let currentDisplayData = [];
+let currentDisplayLabels = [];
+let isFullscreen = false;
+
+// Elements
+const pollutantSelect = document.getElementById('pollutantSelect');
+const pollutantTitle  = document.getElementById('pollutantTitle');
+const modalTitle      = document.getElementById('modalTitle');
+const speedBtn        = document.getElementById('speedBtn');
+const slider          = document.getElementById('slider');
+const startBtn        = document.getElementById('startBtn');
+const stopBtn         = document.getElementById('stopBtn');
+
+/** ============ Utils ============ */
+function categorizeValue(val, bps){
+  if (val === 0 || val === null || isNaN(val)) return 0; // treat 0 as "No Data" if that’s your convention
+  for (let i=1; i<bps.length; i++){
+    if (val <= bps[i]) return i; // 1..6
+  }
+  return 6;
+}
+function categorizeGrid(Zraw, bps){
+  return Zraw.map(row => row.map(val => categorizeValue(val, bps)));
+}
+function makeColorbarText(bps, unit){
+  // maps categories 0..6 (0 = "No Data")
+  return [
+    "0 - No Data",
+    `1 - Good (${bps[0]}–${bps[1]})`,
+    `2 - Moderate (${(bps[1])}–${bps[2]})`,
+    `3 - Unhealthy for Sensitive (${bps[2]}–${bps[3]})`,
+    `4 - Unhealthy (${bps[3]}–${bps[4]})`,
+    `5 - Very Unhealthy (${bps[4]}–${bps[5]})`,
+    `6 - Hazardous (${bps[5]}+)`
+  ];
+}
+function getAQICategoryFromValue(val, bps){
+  const c = categorizeValue(val, bps);
+  return ["No Data","Good","Moderate","Unhealthy for Sensitive","Unhealthy","Very Unhealthy","Hazardous"][c];
+}
+function makeBandShapes(labels, bps){
+  if (!labels || labels.length === 0) return [];
+  const x0 = labels[0], x1 = labels[labels.length - 1];
+
+  // Plain hex list aligned to categories 0..6
+  const BAND_COLORS = ['#ffffff','#00A651','#FFC627','#F58220','#ED1C24','#662D91','#4A0A38'];
+
+  const shapes = [];
+  // Bands 1..6 (skip 0 = "No Data")
+  for (let i = 0; i < bps.length - 1; i++){
+    const cat = i + 1; // 1..6
+    shapes.push({
+      type: 'rect',
+      xref: 'x',
+      yref: 'y',
+      x0, x1,
+      y0: bps[i],
+      y1: bps[i+1],
+      fillcolor: BAND_COLORS[cat],
+      opacity: 0.10,
+      line: { width: 0 }
+    });
+  }
+  // Extend the top band a bit above the last breakpoint
+  shapes.push({
+    type: 'rect',
+    xref: 'x',
+    yref: 'y',
+    x0, x1,
+    y0: bps[bps.length-1],
+    y1: bps[bps.length-1] * 1.2,
+    fillcolor: BAND_COLORS[6],
+    opacity: 0.10,
+    line: { width: 0 }
+  });
+
+  return shapes;
+}
+
+/** ======== Modal controls ========= */
+function openModal(){ document.getElementById('chartModal').style.display = 'block'; }
+function closeModal(){
+  document.getElementById('chartModal').style.display = 'none';
+  const modalContent = document.querySelector('.modal-content');
+  if (modalContent.classList.contains('fullscreen')) {
+    modalContent.classList.remove('fullscreen');
+    document.getElementById('fullscreenBtn').innerHTML = '⛶ Fullscreen';
+    isFullscreen = false;
+  }
+}
+function toggleFullscreen(){
+  const modalContent = document.querySelector('.modal-content');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  isFullscreen = !isFullscreen;
+  if (isFullscreen){
+    modalContent.classList.add('fullscreen');
+    fullscreenBtn.innerHTML = '⛶ Exit Fullscreen';
+    setTimeout(() => Plotly.Plots.resize('lineChart'), 300);
+  } else {
+    modalContent.classList.remove('fullscreen');
+    fullscreenBtn.innerHTML = '⛶ Fullscreen';
+    setTimeout(() => Plotly.Plots.resize('lineChart'), 300);
+  }
+}
+window.onclick = function(e){
+  const modal = document.getElementById('chartModal');
+  if (e.target === modal) closeModal();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && isFullscreen) toggleFullscreen(); });
+
+/** ======== Chart drawing ========= */
+function updateChart(){
+  const trace = {
+    x: currentDisplayLabels,
+    y: currentDisplayData,
+    type: 'scatter',
+    mode: 'lines+markers',
+    name: `${current.name} (${current.unit})`,
+    line: { color:'#667eea', width:2 },
+    marker: {
+      color: currentDisplayData.map(v => {
+        const cat = categorizeValue(v, current.breakpoints);
+        return [ '#ffffff','#00A651','#FFC627','#F58220','#ED1C24','#662D91','#4A0A38' ][cat];
+      }),
+      size: currentDisplayData.length > 100 ? 4 : 6,
+      line: { color:'#fff', width:1 }
+    },
+    hovertemplate: `<b>%{x}</b><br>${current.name}: %{y:.3f} ${current.unit}<br><extra></extra>`
+  };
+
+  const layout = {
+    title: {
+      text: `${current.name} Time Series (${currentDisplayData.length} points)`,
+      font: { size:16, color:'#333' }
+    },
+    xaxis: { title:'Time', tickangle:-45, gridcolor:'#e0e0e0' },
+    yaxis: {
+      title: `${current.name} (${current.unit})`,
+      range: [Math.min(current.breakpoints[0], Math.min(...currentDisplayData, 0)),
+              Math.max(current.breakpoints.at(-1), Math.max(...currentDisplayData) * 1.1)],
+      gridcolor:'#e0e0e0'
+    },
+    plot_bgcolor:'#fafafa', paper_bgcolor:'transparent',
+    margin:{l:60, r:30, t:50, b:80},
+    hovermode:'closest', showlegend:false,
+    shapes: makeBandShapes(currentDisplayLabels, current.breakpoints)
+  };
+
+  Plotly.newPlot('lineChart', [trace], layout, {
+    responsive:true, displayModeBar:true, displaylogo:false,
+    modeBarButtonsToRemove:['lasso2d','select2d'],
+    scrollZoom:true, doubleClick:'reset', showTips:true
+  }).then(() => { if (isFullscreen) setTimeout(() => Plotly.Plots.resize('lineChart'), 100); });
+}
+
+function getAQICategoryText(value){
+  return getAQICategoryFromValue(value, current.breakpoints);
+}
+
+async function createTimeSeriesChart(xCoord, yCoord, xIndex, yIndex){
+  const timeSeriesData = [];
+  const timeLabels = [];
+  const sliceTimestamps = timestamps.slice(0, currentFrame + 1);
+
+  for (const ts of sliceTimestamps){
+    try{
+      let frame = allFrameData[ts];
+      if (!frame){
+        const res = await fetch(`Frames/${current.key}/${ts}.json`);
+        if (!res.ok) throw new Error(`Failed to load frame ${ts}`);
+        frame = await res.json();
+        allFrameData[ts] = frame;
+      }
+      const v = frame?.[yIndex]?.[xIndex];
+      if (v !== null && !Number.isNaN(v)){
+        timeSeriesData.push(v);
+        timeLabels.push(ts);
+      }
+    } catch(err){
+      console.warn('Skipping frame', ts, err.message);
+    }
+  }
+
+  if (timeSeriesData.length === 0){ alert('No data for this location.'); return; }
+
+  const minV = Math.min(...timeSeriesData);
+  const maxV = Math.max(...timeSeriesData);
+  const avgV = timeSeriesData.reduce((a,b)=>a+b,0)/timeSeriesData.length;
+
+  document.getElementById('coordinateInfo').innerHTML = `
+    <strong>Pollutant:</strong> ${current.name} (${current.unit})<br>
+    <strong>Location:</strong> Lon ${xCoord.toFixed(4)}, Lat ${yCoord.toFixed(4)}<br>
+    <strong>Current:</strong> ${timeSeriesData.at(-1).toFixed(3)} ${current.unit} (${getAQICategoryText(timeSeriesData.at(-1))})<br>
+    <strong>Data Points:</strong> ${timeSeriesData.length}<br>
+    <strong>Range:</strong> ${minV.toFixed(3)}–${maxV.toFixed(3)} (avg ${avgV.toFixed(3)}) ${current.unit}
+  `;
+
+  originalTimeSeriesData = [...timeSeriesData];
+  originalTimeLabels = [...timeLabels];
+  currentDisplayData = [...timeSeriesData];
+  currentDisplayLabels = [...timeLabels];
+  modalTitle.textContent = `${current.name} Time Series`;
+
+  updateChart();
+  openModal();
+}
+
+/** ======= Loading & rendering ======= */
+function mesh(a, b){
+  const x=[], y=[];
+  for (let i=0;i<b.length;i++){ x.push(a); y.push(Array(a.length).fill(b[i])); }
+  return [x,y];
+}
+
+async function loadCoordinates(){
+  try{
+    const [xu, yu] = await Promise.all([
+      fetch(`Frames/${current.key}/xu.json`).then(r => r.ok ? r.json() : Promise.reject(r)),
+      fetch(`Frames/${current.key}/yu.json`).then(r => r.ok ? r.json() : Promise.reject(r))
+    ]);
+    X = xu; Y = yu;
+  } catch(err){
+    console.error('Coordinate files missing, generating defaults', err);
+    // Fallback grid (adjust for your region)
+    X = Array.from({length:50}, (_,i)=>126.0 + i*0.01);
+    Y = Array.from({length:49}, (_,i)=>33.0 + i*0.01);
+  }
+}
+
+async function loadIndex(){
+  try{
+    const idx = await fetch(`Frames/${current.key}/index.json`).then(r => r.ok ? r.json() : Promise.reject(r));
+    timestamps = (idx && idx.length) ? idx : [];
+  } catch(err){
+    console.warn('index.json missing; you can provide your own timestamp generator here.');
+    timestamps = []; // if you have a pattern, generate here
+  }
+  slider.max = Math.max(0, timestamps.length - 1);
+}
+
+function renderFrame(timestamp, rawZ, xmesh, ymesh){
+  const Zcat = categorizeGrid(rawZ, current.breakpoints);
+
+  // 3D
+  Plotly.newPlot("plot3d", [{
+    type:'surface', x:xmesh, y:ymesh, z:Zcat, colorscale:customColor,
+    cmin:0, cmax:6, showscale:false
+  }], {
+    title:{ text:`3D - ${current.name} • ${timestamp}` },
+    scene:{
+      zaxis:{ title:{text:'AQI Category'}, range:[0,6] },
+      camera:{ eye:{x:-1.6,y:-1.6,z:0.8} }
+    }
+  }, { staticPlot:false, displayModeBar:false }).then(() => {
+    document.getElementById('plot3d').on('plotly_click', function(d){
+      if (!d.points || !d.points.length) return;
+      const pt = d.points[0];
+      const xCoord = pt.x, yCoord = pt.y;
+      const xi = X.reduce((best,c,idx)=> Math.abs(c - xCoord) < Math.abs(X[best]-xCoord) ? idx : best, 0);
+      const yi = Y.reduce((best,c,idx)=> Math.abs(c - yCoord) < Math.abs(Y[best]-yCoord) ? idx : best, 0);
+      createTimeSeriesChart(xCoord, yCoord, xi, yi);
+    });
+  });
+
+  // 2D
+  Plotly.newPlot("plot2d", [{
+    type:'heatmap', z:Zcat, x:X, y:Y, colorscale:customColor, zmin:0, zmax:6,
+    showscale:true,
+    colorbar:{
+      tickvals:[0,1,2,3,4,5,6],
+      ticktext: makeColorbarText(current.breakpoints, current.unit),
+      title:{ text: `${current.name} (${current.unit})` }
+    }
+  }], {
+    title:{ text:`2D Heatmap - ${current.name} • ${timestamp}` },
+    xaxis:{ title:'' }, yaxis:{ title:'' }
+  }).then(() => {
+    document.getElementById('plot2d').on('plotly_click', function(d){
+      if (!d.points || !d.points.length) return;
+      const p = d.points[0];
+      const xIndex = p.pointNumber[1];
+      const yIndex = p.pointNumber[0];
+      createTimeSeriesChart(X[xIndex], Y[yIndex], xIndex, yIndex);
+    });
+  });
+}
+
+async function loadFrame(i){
+  if (timestamps.length === 0){ console.warn('No frames.'); return; }
+  if (i < 0 || i >= timestamps.length){ console.error('Frame OOR:', i); return; }
+  const ts = timestamps[i];
+  currentFrame = i;
+  slider.value = i;
+
+  try{
+    const rawZ = allFrameData[ts] || await fetch(`Frames/${current.key}/${ts}.json`).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    });
+    allFrameData[ts] = rawZ;
+
+    const [xmesh, ymesh] = mesh(X, Y);
+    renderFrame(ts, rawZ, xmesh, ymesh);
+    document.getElementById('pollutantTitle').textContent = current.name;
+  } catch(err){
+    console.error('Failed to load frame', ts, err);
+    alert(`Failed to load frame: ${ts}`);
+  }
+}
+
+/** ======== Wiring ======== */
+slider.addEventListener("input", () => loadFrame(parseInt(slider.value)));
+speedBtn.addEventListener("click", () => {
+  isFast = !isFast; speed = isFast ? 250 : 500; speedBtn.innerText = `Speed: ${isFast ? "2x" : "1x"}`;
+  if (intervalId !== null){ clearInterval(intervalId);
+    intervalId = setInterval(() => { currentFrame = (currentFrame + 1) % timestamps.length; loadFrame(currentFrame); }, speed);
+  }
+});
+startBtn.addEventListener("click", () => {
+  if (intervalId === null && timestamps.length){
+    intervalId = setInterval(() => { currentFrame = (currentFrame + 1) % timestamps.length; loadFrame(currentFrame); }, speed);
+  }
+});
+stopBtn.addEventListener("click", () => { clearInterval(intervalId); intervalId = null; });
+
+pollutantSelect.addEventListener('change', async (e) => {
+  // swap config
+  current = POLLUTANTS[e.target.value];
+  // reset titles and caches
+  document.getElementById('pollutantTitle').textContent = current.name;
+  modalTitle.textContent = `${current.name} Time Series`;
+  allFrameData = {};
+  timestamps = [];
+  currentFrame = 0;
+  if (intervalId){ clearInterval(intervalId); intervalId = null; }
+
+  // reload coords + index + first frame
+  await loadCoordinates();
+  await loadIndex();
+  if (timestamps.length) await loadFrame(0);
+  else {
+    Plotly.purge('plot3d'); Plotly.purge('plot2d');
+  }
+});
+
+// Initial boot
+(async function init(){
+  await loadCoordinates();
+  await loadIndex();
+  if (timestamps.length) await loadFrame(0);
+})();
+</script>
 </body>
 </html>
